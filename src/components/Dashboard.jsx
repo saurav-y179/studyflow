@@ -3,9 +3,11 @@ import { Flame, Target, TrendingUp, Award } from 'lucide-react';
 export const Dashboard = ({ entries, streak }) => {
   const totalDays = entries.length;
   
-  const completedEntries = entries.filter(e => 
-    e.completedTasks && e.completedTasks.length > 0
-  );
+  const completedEntries = entries.filter((e) => {
+    const tasks = e.todayTasks || [];
+    if (!tasks.length) return false;
+    return (tasks.filter((t) => t.completed).length / tasks.length) >= 0.8;
+  });
   
   const completionRate = totalDays > 0 
     ? Math.round((completedEntries.length / totalDays) * 100) 
@@ -47,7 +49,7 @@ export const Dashboard = ({ entries, streak }) => {
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-surface border border-border rounded-2xl p-5"
+          className="bg-surface/90 border border-border rounded-2xl p-5 shadow-[0_0_20px_rgba(45,91,255,0.08)] hover:shadow-[0_0_24px_rgba(0,240,255,0.15)] transition-shadow"
         >
           <div className="flex items-center gap-3 mb-3">
             <div className={`w-10 h-10 ${stat.bgColor} rounded-xl flex items-center justify-center`}>

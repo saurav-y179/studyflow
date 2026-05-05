@@ -6,7 +6,7 @@ export const Header = ({ user, streak, onLogout }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-border z-50 flex items-center justify-between px-6">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur border-b border-primary/20 z-50 flex items-center justify-between px-6 shadow-[0_0_25px_rgba(0,240,255,0.08)]">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center w-10 h-10 bg-primary/20 rounded-xl">
           <Sparkles className="w-5 h-5 text-primary" />
@@ -14,7 +14,7 @@ export const Header = ({ user, streak, onLogout }) => {
         <span className="text-xl font-semibold text-text-primary">StudyFlow</span>
       </div>
 
-      <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
+      <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/40 rounded-full shadow-[0_0_14px_rgba(0,240,255,0.25)]">
         <span className="text-xl">🔥</span>
         <span className="text-primary font-semibold font-mono">{streak.current}</span>
         <span className="text-text-secondary text-sm">day streak</span>
