@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Bot, Sparkles } from 'lucide-react';
 
-const OLLAMA_API = 'http://localhost:8000';
+const OLLAMA_API = 'http://localhost:11434';
 
 export const LLMAssistant = ({ entries, streak }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,13 +22,13 @@ export const LLMAssistant = ({ entries, streak }) => {
 
   const getContext = () => {
     const recentEntries = entries.slice(-7);
+    const today = entries.find((e) => e.date === new Date().toISOString().slice(0,10));
+    const todayTasks = today?.todayTasks || [];
+    const todayPct = todayTasks.length ? Math.round((todayTasks.filter((t) => t.completed).length / todayTasks.length) * 100) : 0;
     return `
 Current Streak: ${streak.current} days
 Longest Streak: ${streak.longest} days
-Total Entries: ${entries.length}
-
-Recent Activity:
-${recentEntries.map(e => `- ${e.date}: ${e.completed?.slice(0, 50) || '(no details)'}`).join('\n')}
+Today's Completion: ${todayPct}%\nTotal Entries: ${entries.length}\n\nRecent Activity (last 7 days):\n${recentEntries.map(e => { const tasks=e.todayTasks||[]; const done=tasks.filter(t=>t.completed).length; return `- ${e.date}: ${done}/${tasks.length} tasks complete`; }).join('\n')}
 `.trim();
   };
 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { format, subDays, startOfWeek, addDays, eachDayOfInterval, subWeeks, isSameDay } from 'date-fns';
+import { format, eachDayOfInterval, subWeeks, parseISO } from 'date-fns';
 
 const INTENSITY_COLORS = [
   '#1A1A1A', // Level 0 - no activity
@@ -29,15 +29,13 @@ export const ContributionGrid = ({ entries }) => {
       let level = 0;
       
       if (entry) {
-        if (entry.completedTasks && entry.completedTasks.length > 0) {
-          const planned = entry.planned?.split(',').filter(t => t.trim()).length || 0;
-          const ratio = entry.completedTasks.length / Math.max(planned, 1);
+        const tasks = entry.todayTasks || [];
+        if (tasks.length > 0) {
+          const ratio = tasks.filter((t) => t.completed).length / tasks.length;
           if (ratio >= 1) level = 4;
-          else if (ratio >= 0.75) level = 3;
+          else if (ratio >= 0.8) level = 3;
           else if (ratio >= 0.5) level = 2;
           else level = 1;
-        } else if (entry.completed) {
-          level = 3;
         }
       }
       
