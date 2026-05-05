@@ -264,9 +264,9 @@ export const calculateMomentum = (streak) => {
   const maxStreak = 30;
   const momentum = Math.min((streak / maxStreak) * 100, 100);
 
-  let color = '#4361EE';
-  if (momentum > 60) color = '#F72585';
-  else if (momentum > 30) color = '#B5179E';
+  let color = '#355470'; // muted steel — low
+  if (momentum > 60) color = '#AAFF00'; // punchy lime — high
+  else if (momentum > 30) color = '#0099D4'; // Porsche blue — mid
 
   return { momentum, color };
 };

@@ -5,8 +5,6 @@ import {
   Check,
   Lock,
   X,
-  ChevronDown,
-  ChevronUp,
   Pencil,
   Calendar,
   Zap,
@@ -28,7 +26,6 @@ export const DailySubmission = ({ onEntriesChange }) => {
   const [tomorrowEntry, setTomorrowEntry] = useState(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTomorrowTask, setNewTomorrowTask] = useState('');
-  const [showTomorrowPanel, setShowTomorrowPanel] = useState(false);
 
   const currentDate = getToday();
   const tomorrowDate = getTomorrow();
@@ -36,6 +33,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
   useEffect(() => {
     // Task promotion is already handled by useStudyFlow on mount.
     // Just load the current state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTodayEntry(getTodayEntry());
     setTomorrowEntry(getTomorrowEntry());
   }, [currentDate]);
@@ -67,6 +65,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
       updateToday({ ...entry, todayTasks: [...(entry.todayTasks || []), task] });
       setNewTaskText('');
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentDate, tomorrowDate]
   );
 
@@ -124,9 +123,9 @@ export const DailySubmission = ({ onEntriesChange }) => {
   const completedTasks = todayEntry.todayTasks.filter((t) => t.completed).length;
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* ── Today Panel ──────────────────────────────────────── */}
-      <div className="glass-strong rounded-2xl p-6 relative overflow-hidden">
+      <div className="glass-strong rounded-2xl p-6 relative overflow-hidden flex flex-col">
         {/* Subtle top accent */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
@@ -204,16 +203,13 @@ export const DailySubmission = ({ onEntriesChange }) => {
       </div>
 
       {/* ── Tomorrow Panel ───────────────────────────────────── */}
-      <div className="glass-strong rounded-2xl overflow-hidden relative">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-secondary/40 to-transparent" />
+      <div className="glass-strong rounded-2xl overflow-hidden relative flex flex-col">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent" />
 
-        <button
-          onClick={() => setShowTomorrowPanel(!showTomorrowPanel)}
-          className="w-full flex items-center justify-between p-6 hover:bg-surface-elevated/30 transition-colors"
-        >
+        <div className="flex items-center justify-between p-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-secondary/15 rounded-xl flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-secondary" />
+            <div className="w-10 h-10 bg-accent/15 rounded-xl flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-accent" />
             </div>
             <div className="text-left">
               <h2 className="text-xl font-bold text-text-primary tracking-tight">
@@ -225,34 +221,19 @@ export const DailySubmission = ({ onEntriesChange }) => {
               </p>
             </div>
           </div>
-          <motion.div
-            animate={{ rotate: showTomorrowPanel ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronDown className="w-5 h-5 text-text-tertiary" />
-          </motion.div>
-        </button>
+        </div>
 
-        <AnimatePresence>
-          {showTomorrowPanel && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="px-6 pb-6 pt-2">
-                <Section
-                  title="Planning"
-                  subtitle="These will be locked tomorrow"
-                  tasks={tomorrowEntry.todayTasks || []}
-                  onDelete={(t) => handleDeleteTask(t, true)}
-                  onEdit={(t, text) => handleEditTask(t, text, true)}
-                  isTomorrow
-                />
+        <div className="px-6 pb-6 pt-0 flex-1 flex flex-col">
+          <Section
+            title="Planning"
+            subtitle="These will be locked tomorrow"
+            tasks={tomorrowEntry.todayTasks || []}
+            onDelete={(t) => handleDeleteTask(t, true)}
+            onEdit={(t, text) => handleEditTask(t, text, true)}
+            isTomorrow
+          />
 
-                <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-auto pt-4">
                   <input
                     value={newTomorrowTask}
                     onChange={(e) => setNewTomorrowTask(e.target.value)}
@@ -260,22 +241,19 @@ export const DailySubmission = ({ onEntriesChange }) => {
                       e.key === 'Enter' && handleAddTask(newTomorrowTask, true)
                     }
                     placeholder="Plan a task for tomorrow..."
-                    className="flex-1 px-4 py-3 bg-background/40 border border-glass-border rounded-xl text-text-primary text-sm placeholder:text-text-tertiary focus:outline-none focus:border-secondary/40 focus:ring-1 focus:ring-secondary/10 transition-all duration-200"
+                    className="flex-1 px-4 py-3 bg-background/40 border border-glass-border rounded-xl text-text-primary text-sm placeholder:text-text-tertiary focus:outline-none focus:border-accent/40 focus:ring-1 focus:ring-accent/10 transition-all duration-200"
                   />
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleAddTask(newTomorrowTask, true)}
                     disabled={!newTomorrowTask.trim()}
-                    className="px-4 py-3 bg-secondary hover:bg-secondary-glow text-white rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-4 py-3 bg-accent hover:bg-accent-glow text-background font-bold rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4" />
                   </motion.button>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
     </div>
   );
@@ -378,29 +356,45 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ 
+        opacity: task.completed ? 0.6 : 1, 
+        y: 0, 
+        scale: 1,
+        transition: { duration: 0.3 }
+      }}
       exit={{ opacity: 0, x: -20, height: 0 }}
-      transition={{ duration: 0.2 }}
-      className={`group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${
+      whileHover={!locked ? { y: -3, boxShadow: '0 8px 20px -4px rgba(0,0,0,0.5)', scale: 1.01 } : {}}
+      className={`group flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-300 ${
         locked
-          ? 'opacity-60 border-glass-border bg-background/20'
+          ? 'opacity-50 border-glass-border bg-background/30 backdrop-blur-md'
           : task.completed
-          ? 'border-primary/20 bg-primary/5'
-          : 'border-glass-border hover:border-glass-border hover:bg-surface-elevated/30'
+          ? 'border-primary/30 bg-primary/10'
+          : 'border-glass-border bg-surface-elevated/40 hover:border-primary/50'
       }`}
     >
       {/* Checkbox — only for today's tasks (not tomorrow planning) */}
       {!isTomorrow && (
         <button
           onClick={() => onToggle?.(task)}
-          className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+          className={`relative flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-300 ${
             task.completed
-              ? 'bg-primary border-primary shadow-sm shadow-primary/20'
-              : 'border-text-tertiary/30 hover:border-primary/50'
+              ? 'bg-primary border-primary shadow-[0_0_10px_rgba(247,37,133,0.5)]'
+              : 'border-text-tertiary/40 hover:border-primary'
           }`}
         >
-          {task.completed && <Check className="w-3 h-3 text-background" />}
+          <AnimatePresence>
+            {task.completed && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Check className="w-4 h-4 text-background font-bold" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </button>
       )}
 
@@ -434,7 +428,11 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
 
       {/* Action buttons */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {locked && <Lock className="w-3.5 h-3.5 text-text-tertiary/50" />}
+        {locked && (
+          <div className="w-7 h-7 rounded-lg bg-surface/50 flex items-center justify-center shadow-inner">
+            <Lock className="w-3.5 h-3.5 text-text-tertiary/60" />
+          </div>
+        )}
         {!locked && onEdit && !isEditing && (
           <button
             onClick={() => {

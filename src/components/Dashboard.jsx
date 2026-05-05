@@ -13,9 +13,9 @@ export const Dashboard = ({ entries, streak }) => {
 
   const stats = [
     { label: 'Active Days', value: activeDays, icon: Flame, color: 'text-primary', bgColor: 'bg-primary/10', gradient: 'from-primary/20 to-transparent' },
-    { label: 'Current Streak', value: streak.current, icon: TrendingUp, color: 'text-warning', bgColor: 'bg-warning/10', gradient: 'from-warning/20 to-transparent' },
-    { label: 'Longest Streak', value: streak.longest, icon: Award, color: 'text-secondary', bgColor: 'bg-secondary/10', gradient: 'from-secondary/20 to-transparent' },
-    { label: 'Completion', value: `${completionRate}%`, icon: Target, color: 'text-primary-glow', bgColor: 'bg-primary-glow/10', gradient: 'from-primary-glow/20 to-transparent' },
+    { label: 'Current Streak', value: streak.current, icon: TrendingUp, color: 'text-secondary', bgColor: 'bg-secondary/10', gradient: 'from-secondary/20 to-transparent' },
+    { label: 'Longest Streak', value: streak.longest, icon: Award, color: 'text-accent', bgColor: 'bg-accent/10', gradient: 'from-accent/20 to-transparent' },
+    { label: 'Completion', value: `${completionRate}%`, icon: Target, color: 'text-warning', bgColor: 'bg-warning/10', gradient: 'from-warning/20 to-transparent' },
   ];
 
   return (

@@ -21,7 +21,7 @@ export const useStudyFlow = () => {
 
     const userData = getUser();
     const entriesData = getEntries();
-
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUser(userData);
     setEntries(entriesData);
 

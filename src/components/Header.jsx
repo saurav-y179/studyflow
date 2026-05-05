@@ -51,7 +51,7 @@ export const Header = ({ user, streak, onLogout }) => {
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-surface-elevated/50 transition-all duration-200"
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-secondary to-secondary-glow rounded-full flex items-center justify-center shadow-lg shadow-secondary/20">
+          <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-glow rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
             <UserIcon className="w-4 h-4 text-white" />
           </div>
           <span className="text-text-primary text-sm font-medium hidden sm:block">

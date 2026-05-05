@@ -3,11 +3,11 @@ import { motion } from 'framer-motion';
 import { format, eachDayOfInterval, subWeeks, parseISO } from 'date-fns';
 
 const INTENSITY_COLORS = [
-  'rgba(255,255,255,0.03)', // Level 0 - no activity
-  '#4A154B',               // Level 1 - partial (Deep purple-pink)
-  '#9D176A',               // Level 2 - moderate
-  '#F72585',               // Level 3 - complete (Primary)
-  '#FF4D9D',               // Level 4 - exceeded (Primary Glow)
+  'rgba(0,153,212,0.06)',  // Level 0 - no activity
+  '#0A2540',               // Level 1 - partial (deep navy)
+  '#005F8A',               // Level 2 - moderate (steel blue)
+  '#0099D4',               // Level 3 - complete (Porsche blue)
+  '#AAFF00',               // Level 4 - exceeded (punchy lime)
 ];
 
 export const ContributionGrid = ({ entries }) => {
