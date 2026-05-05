@@ -1,10 +1,12 @@
 const STORAGE_KEYS = {
   USER: 'studyflow_user',
   ENTRIES: 'studyflow_entries',
+  PROMOTED: 'studyflow_promoted', // tracks which dates have had tasks promoted
 };
 
 export const COMPLETION_THRESHOLD = 0.8;
 
+// ── User ──────────────────────────────────────────────────────────────
 export const getUser = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.USER);
@@ -18,15 +20,7 @@ export const saveUser = (user) => {
   localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
 };
 
-export const getEntries = () => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.ENTRIES);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
+// ── Date helpers ──────────────────────────────────────────────────────
 export const formatDate = (date) => {
   const d = new Date(date);
   const year = d.getFullYear();
@@ -42,11 +36,13 @@ export const getLocalDayStart = (date = new Date()) => {
 };
 
 export const getToday = () => formatDate(getLocalDayStart());
+
 export const getTomorrow = () => {
   const d = getLocalDayStart();
   d.setDate(d.getDate() + 1);
   return formatDate(d);
 };
+
 export const getYesterday = () => {
   const d = getLocalDayStart();
   d.setDate(d.getDate() - 1);
@@ -59,22 +55,18 @@ export const addDaysDateStr = (dateStr, days) => {
   return formatDate(d);
 };
 
-export const createTask = (text, date, createdAt = new Date().toISOString()) => ({
-  id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-  text: text.trim(),
-  date,
-  createdAt,
-  completed: false,
-  source: 'added_today',
-});
+// ── Entries CRUD ──────────────────────────────────────────────────────
+export const getEntries = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.ENTRIES);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+};
 
-export const buildPlannedTask = (task, executionDate) => ({
-  ...task,
-  date: executionDate,
-  source: 'planned',
-});
-
-export const getEntryByDate = (date) => getEntries().find((e) => e.date === date) || null;
+export const getEntryByDate = (date) =>
+  getEntries().find((e) => e.date === date) || null;
 
 export const saveEntry = (entry) => {
   const entries = getEntries();
@@ -93,7 +85,11 @@ export const saveEntry = (entry) => {
   return entries;
 };
 
-export const createEmptyEntry = (date) => ({ date, todayTasks: [], timestamp: Date.now() });
+export const createEmptyEntry = (date) => ({
+  date,
+  todayTasks: [],
+  timestamp: Date.now(),
+});
 
 export const getTodayEntry = () => {
   const today = getToday();
@@ -110,23 +106,119 @@ export const getTomorrowEntry = () => {
   return getEntryByDate(tomorrow) || createEmptyEntry(tomorrow);
 };
 
+// ── Task factory ──────────────────────────────────────────────────────
+export const createTask = (text, date, createdAt = new Date().toISOString()) => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+  text: text.trim(),
+  date,
+  createdAt,
+  completed: false,
+  source: 'added_today',
+});
+
+export const buildPlannedTask = (task, executionDate) => ({
+  ...task,
+  id: `planned-${task.id}`, // new stable ID so we can detect duplicates
+  date: executionDate,
+  source: 'planned',
+  completed: false, // reset completion for the new day
+});
+
+// ── Task editing ──────────────────────────────────────────────────────
+export const updateTaskInEntry = (dateStr, taskId, updates) => {
+  const entry = getEntryByDate(dateStr);
+  if (!entry) return null;
+  const nextTasks = entry.todayTasks.map((t) =>
+    t.id === taskId ? { ...t, ...updates } : t
+  );
+  const updated = { ...entry, todayTasks: nextTasks };
+  saveEntry(updated);
+  return updated;
+};
+
+// ── Planned task promotion (idempotent, runs once per day) ────────────
+export const promotePlannedTasks = (currentDate = getToday()) => {
+  const promotedKey = STORAGE_KEYS.PROMOTED;
+  const alreadyPromoted = JSON.parse(localStorage.getItem(promotedKey) || '[]');
+
+  if (alreadyPromoted.includes(currentDate)) return; // already done today
+
+  const yesterday = addDaysDateStr(currentDate, -1);
+  const yesterdayEntry = getEntryByDate(yesterday);
+  const todayEntry = getTodayEntry();
+
+  if (yesterdayEntry) {
+    // Get uncompleted tasks from yesterday that were planned for today
+    // (i.e., tasks in yesterday's entry that haven't been completed)
+    const tasksToPromote = (yesterdayEntry.todayTasks || [])
+      .filter((t) => !t.completed)
+      .map((t) => buildPlannedTask(t, currentDate));
+
+    // Filter out any that are already present (by planned-id)
+    const existingIds = new Set((todayEntry.todayTasks || []).map((t) => t.id));
+    const newPlanned = tasksToPromote.filter((t) => !existingIds.has(t.id));
+
+    if (newPlanned.length > 0) {
+      const merged = [...newPlanned, ...(todayEntry.todayTasks || [])];
+      saveEntry({ ...todayEntry, todayTasks: merged });
+    }
+  }
+
+  // Also promote tasks that were explicitly planned for today (created yesterday via Tomorrow panel)
+  // These are tasks where task.date === currentDate and were created before today
+  const tomorrowPlanned = getEntryByDate(currentDate);
+  if (tomorrowPlanned) {
+    const currentDayStart = getLocalDayStart(`${currentDate}T00:00:00`).getTime();
+    const tasks = tomorrowPlanned.todayTasks || [];
+    const updated = tasks.map((t) => {
+      const createdAt = new Date(t.createdAt).getTime();
+      if (createdAt < currentDayStart && t.source !== 'planned') {
+        return { ...t, source: 'planned' };
+      }
+      return t;
+    });
+    if (JSON.stringify(updated) !== JSON.stringify(tasks)) {
+      saveEntry({ ...tomorrowPlanned, todayTasks: updated });
+    }
+  }
+
+  alreadyPromoted.push(currentDate);
+  // Keep only last 7 days of promotion records
+  const trimmed = alreadyPromoted.slice(-7);
+  localStorage.setItem(promotedKey, JSON.stringify(trimmed));
+};
+
+// ── Time-lock rules ──────────────────────────────────────────────────
 export const canEditTask = (task, currentDate = getToday()) => {
   const tomorrow = addDaysDateStr(currentDate, 1);
   const taskDayStart = getLocalDayStart(`${task.date}T00:00:00`).getTime();
   const currentDayStart = getLocalDayStart(`${currentDate}T00:00:00`).getTime();
   const tomorrowDayStart = getLocalDayStart(`${tomorrow}T00:00:00`).getTime();
 
+  // Rule 1: task.date == currentDate
   if (taskDayStart === currentDayStart) {
     const createdAt = new Date(task.createdAt).getTime();
-    if (createdAt < currentDayStart) return { canEdit: false, reason: 'planned_yesterday', canToggle: true };
+    if (createdAt < currentDayStart || task.source === 'planned') {
+      return { canEdit: false, reason: 'planned_yesterday', canToggle: true };
+    }
     return { canEdit: true, reason: 'added_today', canToggle: true };
   }
 
-  if (taskDayStart === tomorrowDayStart) return { canEdit: true, reason: 'planning_phase', canToggle: true };
-  if (taskDayStart < currentDayStart) return { canEdit: false, reason: 'past_date', canToggle: false };
+  // Rule 2: task.date == currentDate + 1 (planning phase)
+  if (taskDayStart === tomorrowDayStart) {
+    return { canEdit: true, reason: 'planning_phase', canToggle: false };
+  }
+
+  // Rule 3: task.date < currentDate (history — fully locked)
+  if (taskDayStart < currentDayStart) {
+    return { canEdit: false, reason: 'past_date', canToggle: false };
+  }
+
+  // Rule 4: task.date > currentDate + 1 (not allowed)
   return { canEdit: false, reason: 'future_date', canToggle: false };
 };
 
+// ── Completion helpers ───────────────────────────────────────────────
 export const getCompletionPercentage = (entry) => {
   const tasks = entry?.todayTasks || [];
   if (tasks.length === 0) return 0;
@@ -141,6 +233,7 @@ export const isDayComplete = (entry, threshold = COMPLETION_THRESHOLD) => {
   return completed / tasks.length >= threshold;
 };
 
+// ── Streak calculation ───────────────────────────────────────────────
 export const calculateStreak = (entries) => {
   if (!entries?.length) return { current: 0, longest: 0 };
   const completeDates = new Set(entries.filter(isDayComplete).map((e) => e.date));
@@ -166,13 +259,14 @@ export const calculateStreak = (entries) => {
   return { current, longest };
 };
 
+// ── Momentum ─────────────────────────────────────────────────────────
 export const calculateMomentum = (streak) => {
   const maxStreak = 30;
   const momentum = Math.min((streak / maxStreak) * 100, 100);
 
-  let color = '#EF4444';
-  if (momentum > 60) color = '#10B981';
-  else if (momentum > 30) color = '#F59E0B';
+  let color = '#4361EE';
+  if (momentum > 60) color = '#F72585';
+  else if (momentum > 30) color = '#B5179E';
 
   return { momentum, color };
 };

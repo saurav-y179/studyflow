@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Check, Lock, Calendar, X, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Plus,
+  Check,
+  Lock,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  Calendar,
+  Zap,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import {
   getTodayEntry,
@@ -11,9 +21,6 @@ import {
   createTask,
   canEditTask,
   getCompletionPercentage,
-  buildPlannedTask,
-  getEntryByDate,
-  getYesterday,
 } from '../utils/storage';
 
 export const DailySubmission = ({ onEntriesChange }) => {
@@ -27,21 +34,10 @@ export const DailySubmission = ({ onEntriesChange }) => {
   const tomorrowDate = getTomorrow();
 
   useEffect(() => {
-    const today = getTodayEntry();
-    const tomorrow = getTomorrowEntry();
-    const yesterday = getEntryByDate(getYesterday());
-    const planned = (yesterday?.todayTasks || [])
-      .filter((task) => !task.completed)
-      .map((task) => buildPlannedTask(task, currentDate));
-
-    const addedToday = (today.todayTasks || []).filter((t) => canEditTask(t, currentDate).reason === 'added_today');
-    const mergedToday = { ...today, todayTasks: [...planned, ...addedToday] };
-    if ((today.todayTasks || []).length !== mergedToday.todayTasks.length) {
-      saveEntry(mergedToday);
-    }
-
-    setTodayEntry(mergedToday);
-    setTomorrowEntry(tomorrow);
+    // Task promotion is already handled by useStudyFlow on mount.
+    // Just load the current state.
+    setTodayEntry(getTodayEntry());
+    setTomorrowEntry(getTomorrowEntry());
   }, [currentDate]);
 
   const updateToday = (updated) => {
@@ -56,68 +52,226 @@ export const DailySubmission = ({ onEntriesChange }) => {
     onEntriesChange?.();
   };
 
-  const handleAddTask = useCallback((taskText, isForTomorrow = false) => {
-    if (!taskText.trim()) return;
-    if (isForTomorrow) {
-      const task = createTask(taskText, tomorrowDate);
-      updateTomorrow({ ...tomorrowEntry, todayTasks: [...(tomorrowEntry?.todayTasks || []), task] });
-      setNewTomorrowTask('');
-      return;
-    }
-    const task = createTask(taskText, currentDate);
-    updateToday({ ...todayEntry, todayTasks: [...(todayEntry?.todayTasks || []), task] });
-    setNewTaskText('');
-  }, [currentDate, tomorrowDate, todayEntry, tomorrowEntry]);
+  const handleAddTask = useCallback(
+    (taskText, isForTomorrow = false) => {
+      if (!taskText.trim()) return;
+      if (isForTomorrow) {
+        const task = createTask(taskText, tomorrowDate);
+        const entry = getTomorrowEntry();
+        updateTomorrow({ ...entry, todayTasks: [...(entry.todayTasks || []), task] });
+        setNewTomorrowTask('');
+        return;
+      }
+      const task = createTask(taskText, currentDate);
+      const entry = getTodayEntry();
+      updateToday({ ...entry, todayTasks: [...(entry.todayTasks || []), task] });
+      setNewTaskText('');
+    },
+    [currentDate, tomorrowDate]
+  );
 
-  const handleToggleTask = useCallback((task, isForTomorrow = false) => {
-    const permission = canEditTask(task, currentDate);
-    if (!permission.canToggle) return;
-    const target = isForTomorrow ? tomorrowEntry : todayEntry;
-    const setter = isForTomorrow ? updateTomorrow : updateToday;
-    const nextTasks = (target?.todayTasks || []).map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t));
-    setter({ ...target, todayTasks: nextTasks });
-  }, [todayEntry, tomorrowEntry, currentDate]);
+  const handleToggleTask = useCallback(
+    (task, isForTomorrow = false) => {
+      const permission = canEditTask(task, currentDate);
+      if (!permission.canToggle) return;
+      const target = isForTomorrow ? getTomorrowEntry() : getTodayEntry();
+      const setter = isForTomorrow ? updateTomorrow : updateToday;
+      const nextTasks = (target?.todayTasks || []).map((t) =>
+        t.id === task.id ? { ...t, completed: !t.completed } : t
+      );
+      setter({ ...target, todayTasks: nextTasks });
+    },
+    [currentDate]
+  );
 
-  const handleDeleteTask = useCallback((task, isForTomorrow = false) => {
-    const target = isForTomorrow ? tomorrowEntry : todayEntry;
-    const setter = isForTomorrow ? updateTomorrow : updateToday;
-    const nextTasks = (target?.todayTasks || []).filter((t) => t.id !== task.id);
-    setter({ ...target, todayTasks: nextTasks });
-  }, [todayEntry, tomorrowEntry]);
+  const handleDeleteTask = useCallback(
+    (task, isForTomorrow = false) => {
+      const permission = canEditTask(task, currentDate);
+      if (!permission.canEdit) return;
+      const target = isForTomorrow ? getTomorrowEntry() : getTodayEntry();
+      const setter = isForTomorrow ? updateTomorrow : updateToday;
+      const nextTasks = (target?.todayTasks || []).filter((t) => t.id !== task.id);
+      setter({ ...target, todayTasks: nextTasks });
+    },
+    [currentDate]
+  );
+
+  const handleEditTask = useCallback(
+    (task, newText, isForTomorrow = false) => {
+      if (!newText.trim()) return;
+      const permission = canEditTask(task, currentDate);
+      if (!permission.canEdit) return;
+      const target = isForTomorrow ? getTomorrowEntry() : getTodayEntry();
+      const setter = isForTomorrow ? updateTomorrow : updateToday;
+      const nextTasks = (target?.todayTasks || []).map((t) =>
+        t.id === task.id ? { ...t, text: newText.trim() } : t
+      );
+      setter({ ...target, todayTasks: nextTasks });
+    },
+    [currentDate]
+  );
 
   if (!todayEntry || !tomorrowEntry) return null;
 
-  const plannedTasks = todayEntry.todayTasks.filter((t) => canEditTask(t, currentDate).reason === 'planned_yesterday');
-  const addedTodayTasks = todayEntry.todayTasks.filter((t) => canEditTask(t, currentDate).reason === 'added_today');
+  const plannedTasks = todayEntry.todayTasks.filter(
+    (t) => canEditTask(t, currentDate).reason === 'planned_yesterday'
+  );
+  const addedTodayTasks = todayEntry.todayTasks.filter(
+    (t) => canEditTask(t, currentDate).reason === 'added_today'
+  );
   const completionPercent = getCompletionPercentage(todayEntry);
+  const totalTasks = todayEntry.todayTasks.length;
+  const completedTasks = todayEntry.todayTasks.filter((t) => t.completed).length;
 
   return (
     <div className="space-y-6">
-      <div className="bg-surface border border-border rounded-2xl p-6">
-        <h2 className="text-xl font-semibold text-text-primary">Today's Tasks</h2>
-        <p className="text-text-secondary text-sm mb-4">{format(new Date(), 'EEEE, MMMM d, yyyy')} · {completionPercent}% complete</p>
+      {/* ── Today Panel ──────────────────────────────────────── */}
+      <div className="glass-strong rounded-2xl p-6 relative overflow-hidden">
+        {/* Subtle top accent */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
-        <Section title="Planned Tasks" tasks={plannedTasks} locked onToggle={(t) => handleToggleTask(t)} />
-        <Section title="Added Today" tasks={addedTodayTasks} onToggle={(t) => handleToggleTask(t)} onDelete={(t) => handleDeleteTask(t)} />
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/15 rounded-xl flex items-center justify-center">
+              <Zap className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-text-primary tracking-tight">
+                Today&apos;s Tasks
+              </h2>
+              <p className="text-text-tertiary text-sm">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              </p>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2 pt-2">
-          <input value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTask(newTaskText)} placeholder="Add a new task..." className="flex-1 px-4 py-2 bg-background border border-border rounded-xl" />
-          <button onClick={() => handleAddTask(newTaskText)} disabled={!newTaskText.trim()} className="px-4 py-2 bg-primary text-background rounded-xl"><Plus className="w-4 h-4" /></button>
+          {/* Completion ring */}
+          <CompletionRing percent={completionPercent} completed={completedTasks} total={totalTasks} />
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-4 mb-6">
+          <div className="h-1.5 bg-background/60 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-primary-glow"
+              initial={{ width: 0 }}
+              animate={{ width: `${completionPercent}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            />
+          </div>
+        </div>
+
+        {/* Planned tasks section */}
+        {plannedTasks.length > 0 && (
+          <Section
+            title="Planned Tasks"
+            subtitle="From yesterday — locked"
+            tasks={plannedTasks}
+            locked
+            onToggle={(t) => handleToggleTask(t)}
+          />
+        )}
+
+        {/* Added today section */}
+        <Section
+          title="Added Today"
+          subtitle="Editable"
+          tasks={addedTodayTasks}
+          onToggle={(t) => handleToggleTask(t)}
+          onDelete={(t) => handleDeleteTask(t)}
+          onEdit={(t, text) => handleEditTask(t, text)}
+        />
+
+        {/* Add new task input */}
+        <div className="flex items-center gap-2 pt-3">
+          <input
+            value={newTaskText}
+            onChange={(e) => setNewTaskText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddTask(newTaskText)}
+            placeholder="Add a new task..."
+            className="flex-1 px-4 py-3 bg-background/40 border border-glass-border rounded-xl text-text-primary text-sm placeholder:text-text-tertiary focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/10 transition-all duration-200"
+          />
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleAddTask(newTaskText)}
+            disabled={!newTaskText.trim()}
+            className="px-4 py-3 bg-primary hover:bg-primary-glow text-background rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" />
+          </motion.button>
         </div>
       </div>
 
-      <div className="bg-surface border border-border rounded-2xl p-6">
-        <button onClick={() => setShowTomorrowPanel(!showTomorrowPanel)} className="w-full flex justify-between">
-          <h2 className="text-xl font-semibold text-text-primary">Tomorrow's Tasks</h2>
-          {showTomorrowPanel ? <ChevronUp /> : <ChevronDown />}
+      {/* ── Tomorrow Panel ───────────────────────────────────── */}
+      <div className="glass-strong rounded-2xl overflow-hidden relative">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-secondary/40 to-transparent" />
+
+        <button
+          onClick={() => setShowTomorrowPanel(!showTomorrowPanel)}
+          className="w-full flex items-center justify-between p-6 hover:bg-surface-elevated/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-secondary/15 rounded-xl flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-secondary" />
+            </div>
+            <div className="text-left">
+              <h2 className="text-xl font-bold text-text-primary tracking-tight">
+                Tomorrow&apos;s Plan
+              </h2>
+              <p className="text-text-tertiary text-sm">
+                {(tomorrowEntry.todayTasks || []).length} task
+                {(tomorrowEntry.todayTasks || []).length !== 1 ? 's' : ''} planned
+              </p>
+            </div>
+          </div>
+          <motion.div
+            animate={{ rotate: showTomorrowPanel ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown className="w-5 h-5 text-text-tertiary" />
+          </motion.div>
         </button>
+
         <AnimatePresence>
           {showTomorrowPanel && (
-            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden pt-4">
-              <Section title="Planning" tasks={tomorrowEntry.todayTasks || []} onToggle={(t) => handleToggleTask(t, true)} onDelete={(t) => handleDeleteTask(t, true)} />
-              <div className="flex gap-2 mt-2">
-                <input value={newTomorrowTask} onChange={(e) => setNewTomorrowTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTask(newTomorrowTask, true)} placeholder="Plan a task for tomorrow..." className="flex-1 px-4 py-2 bg-background border border-border rounded-xl" />
-                <button onClick={() => handleAddTask(newTomorrowTask, true)} disabled={!newTomorrowTask.trim()} className="px-4 py-2 bg-secondary text-white rounded-xl"><Plus className="w-4 h-4" /></button>
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            >
+              <div className="px-6 pb-6 pt-2">
+                <Section
+                  title="Planning"
+                  subtitle="These will be locked tomorrow"
+                  tasks={tomorrowEntry.todayTasks || []}
+                  onDelete={(t) => handleDeleteTask(t, true)}
+                  onEdit={(t, text) => handleEditTask(t, text, true)}
+                  isTomorrow
+                />
+
+                <div className="flex gap-2 mt-3">
+                  <input
+                    value={newTomorrowTask}
+                    onChange={(e) => setNewTomorrowTask(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' && handleAddTask(newTomorrowTask, true)
+                    }
+                    placeholder="Plan a task for tomorrow..."
+                    className="flex-1 px-4 py-3 bg-background/40 border border-glass-border rounded-xl text-text-primary text-sm placeholder:text-text-tertiary focus:outline-none focus:border-secondary/40 focus:ring-1 focus:ring-secondary/10 transition-all duration-200"
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleAddTask(newTomorrowTask, true)}
+                    disabled={!newTomorrowTask.trim()}
+                    className="px-4 py-3 bg-secondary hover:bg-secondary-glow text-white rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -127,24 +281,180 @@ export const DailySubmission = ({ onEntriesChange }) => {
   );
 };
 
-const Section = ({ title, tasks, locked = false, onToggle, onDelete }) => (
-  <div className="mb-4">
-    <h3 className="text-xs uppercase text-text-tertiary mb-2">{title}</h3>
+// ── Completion Ring ─────────────────────────────────────────────────
+const CompletionRing = ({ percent, completed, total }) => {
+  const radius = 22;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width="60" height="60" className="-rotate-90">
+        <circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.05)"
+          strokeWidth="4"
+        />
+        <motion.circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="none"
+          stroke="var(--color-primary)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xs font-bold text-text-primary font-mono">
+          {completed}/{total}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// ── Section ─────────────────────────────────────────────────────────
+const Section = ({ title, subtitle, tasks, locked = false, isTomorrow = false, onToggle, onDelete, onEdit }) => (
+  <div className="mb-5">
+    <div className="flex items-center gap-2 mb-3">
+      <h3 className="text-xs font-semibold uppercase text-text-tertiary tracking-wider">
+        {title}
+      </h3>
+      {subtitle && (
+        <span className="text-xs text-text-tertiary/60">· {subtitle}</span>
+      )}
+    </div>
     <div className="space-y-2">
-      {tasks.map((task) => <TaskItem key={task.id} task={task} locked={locked} onToggle={onToggle} onDelete={onDelete} />)}
+      <AnimatePresence mode="popLayout">
+        {tasks.map((task) => (
+          <TaskItem
+            key={task.id}
+            task={task}
+            locked={locked}
+            isTomorrow={isTomorrow}
+            onToggle={onToggle}
+            onDelete={onDelete}
+            onEdit={onEdit}
+          />
+        ))}
+      </AnimatePresence>
+      {tasks.length === 0 && (
+        <p className="text-text-tertiary/50 text-sm py-3 text-center">
+          No tasks yet
+        </p>
+      )}
     </div>
   </div>
 );
 
-const TaskItem = ({ task, locked, onToggle, onDelete }) => (
-  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${locked ? 'opacity-70' : ''} ${task.completed ? 'bg-primary/5 border-primary/30' : 'border-border'}`}>
-    <button onClick={() => onToggle(task)} className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${task.completed ? 'bg-primary border-primary' : 'border-border'}`}>
-      {task.completed && <Check className="w-3 h-3 text-background" />}
-    </button>
-    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-green-500' : 'text-text-primary'}`}>{task.text}</span>
-    {locked && <Lock className="w-4 h-4 text-text-tertiary" />}
-    {!locked && onDelete && (
-      <button onClick={() => onDelete(task)} className="w-6 h-6 rounded hover:bg-error/20 flex items-center justify-center"><X className="w-4 h-4" /></button>
-    )}
-  </div>
-);
+// ── Task Item ───────────────────────────────────────────────────────
+const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(task.text);
+
+  const handleSaveEdit = () => {
+    if (editText.trim() && editText.trim() !== task.text) {
+      onEdit?.(task, editText);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleSaveEdit();
+    if (e.key === 'Escape') {
+      setEditText(task.text);
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -20, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${
+        locked
+          ? 'opacity-60 border-glass-border bg-background/20'
+          : task.completed
+          ? 'border-primary/20 bg-primary/5'
+          : 'border-glass-border hover:border-glass-border hover:bg-surface-elevated/30'
+      }`}
+    >
+      {/* Checkbox — only for today's tasks (not tomorrow planning) */}
+      {!isTomorrow && (
+        <button
+          onClick={() => onToggle?.(task)}
+          className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+            task.completed
+              ? 'bg-primary border-primary shadow-sm shadow-primary/20'
+              : 'border-text-tertiary/30 hover:border-primary/50'
+          }`}
+        >
+          {task.completed && <Check className="w-3 h-3 text-background" />}
+        </button>
+      )}
+
+      {/* Task text / editing */}
+      {isEditing ? (
+        <input
+          autoFocus
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onBlur={handleSaveEdit}
+          onKeyDown={handleKeyDown}
+          className="flex-1 bg-transparent border-b border-primary/30 text-text-primary text-sm py-0.5 focus:outline-none"
+        />
+      ) : (
+        <span
+          className={`flex-1 text-sm transition-colors ${
+            task.completed
+              ? 'line-through text-primary/70'
+              : 'text-text-primary'
+          }`}
+          onDoubleClick={() => {
+            if (!locked && (onEdit)) {
+              setEditText(task.text);
+              setIsEditing(true);
+            }
+          }}
+        >
+          {task.text}
+        </span>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {locked && <Lock className="w-3.5 h-3.5 text-text-tertiary/50" />}
+        {!locked && onEdit && !isEditing && (
+          <button
+            onClick={() => {
+              setEditText(task.text);
+              setIsEditing(true);
+            }}
+            className="w-7 h-7 rounded-lg hover:bg-surface-elevated flex items-center justify-center transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5 text-text-tertiary" />
+          </button>
+        )}
+        {!locked && onDelete && (
+          <button
+            onClick={() => onDelete(task)}
+            className="w-7 h-7 rounded-lg hover:bg-error/15 flex items-center justify-center transition-colors"
+          >
+            <X className="w-3.5 h-3.5 text-text-tertiary hover:text-error" />
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+};

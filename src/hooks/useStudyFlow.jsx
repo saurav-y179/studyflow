@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUser, saveUser, getEntries, calculateStreak, calculateMomentum } from '../utils/storage';
+import {
+  getUser,
+  saveUser,
+  getEntries,
+  calculateStreak,
+  calculateMomentum,
+  promotePlannedTasks,
+} from '../utils/storage';
 
 export const useStudyFlow = () => {
   const [user, setUser] = useState(null);
@@ -9,18 +16,21 @@ export const useStudyFlow = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Run idempotent planned-task promotion on mount (handles day rollover)
+    promotePlannedTasks();
+
     const userData = getUser();
     const entriesData = getEntries();
-    
+
     setUser(userData);
     setEntries(entriesData);
-    
+
     if (userData) {
       const streakData = calculateStreak(entriesData);
       setStreak(streakData);
       setMomentum(calculateMomentum(streakData.current));
     }
-    
+
     setIsLoading(false);
   }, []);
 
