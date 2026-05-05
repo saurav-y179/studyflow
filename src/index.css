@@ -1,23 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #07090D;
-  --color-surface: #0C1118;
-  --color-surface-elevated: #131D28;
-  --color-primary: #0099D4;
-  --color-primary-glow: #33BFFF;
-  --color-secondary: #CC0020;
-  --color-secondary-glow: #FF1A3E;
-  --color-accent: #AAFF00;
-  --color-accent-glow: #C8FF4D;
-  --color-warning: #FFD600;
-  --color-error: #FF1A3E;
-  --color-text-primary: #EEF4FA;
-  --color-text-secondary: #6A9AB8;
-  --color-text-tertiary: #355470;
-  --color-border: #142030;
-  --color-glass: rgba(0, 153, 212, 0.04);
-  --color-glass-border: rgba(0, 153, 212, 0.14);
+  --color-background: #050810;
+  --color-surface: #0a0e18;
+  --color-surface-elevated: #0f1524;
+  --color-primary: #3b82f6;
+  --color-primary-glow: #60a5fa;
+  --color-secondary: #0ea5e9;
+  --color-secondary-glow: #38bdf8;
+  --color-accent: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-text-primary: #f0f4f8;
+  --color-text-secondary: #7b8fa6;
+  --color-text-tertiary: #3a4d63;
+  --color-border: #111b2e;
+  --color-glass: rgba(59, 130, 246, 0.04);
+  --color-glass-border: rgba(59, 130, 246, 0.12);
 }
 
 * {
@@ -30,15 +29,15 @@ html, body, #root {
   min-height: 100vh;
   background: var(--color-background);
   color: var(--color-text-primary);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: 'Inter', 'Outfit', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Custom scrollbar ────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -46,56 +45,61 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 153, 212, 0.18);
+  background: rgba(59, 130, 246, 0.15);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 153, 212, 0.35);
+  background: rgba(59, 130, 246, 0.3);
 }
 
 /* ── Glassmorphism utility ───────────────────────────────────────── */
 .glass {
   background: linear-gradient(
     135deg,
-    rgba(0, 153, 212, 0.04) 0%,
-    rgba(0, 20, 40, 0.6) 100%
+    rgba(59, 130, 246, 0.06) 0%,
+    rgba(5, 8, 16, 0.55) 50%,
+    rgba(59, 130, 246, 0.03) 100%
   );
-  backdrop-filter: blur(20px) saturate(1.3);
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
-  border: 1px solid rgba(0, 153, 212, 0.12);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 20px rgba(59, 130, 246, 0.03),
+    0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .glass-strong {
   background: linear-gradient(
     135deg,
-    rgba(0, 153, 212, 0.07) 0%,
-    rgba(0, 15, 30, 0.7) 100%
+    rgba(59, 130, 246, 0.08) 0%,
+    rgba(5, 8, 16, 0.65) 50%,
+    rgba(59, 130, 246, 0.04) 100%
   );
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  border: 1px solid rgba(0, 153, 212, 0.16);
+  backdrop-filter: blur(32px) saturate(1.6);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 30px rgba(59, 130, 246, 0.05),
+    0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Glow effects ────────────────────────────────────────────────── */
 .glow-primary {
-  box-shadow: 0 0 30px rgba(0, 153, 212, 0.30),
-              0 0 70px rgba(0, 153, 212, 0.15);
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.3),
+              0 0 70px rgba(59, 130, 246, 0.15);
 }
 
 .glow-secondary {
-  box-shadow: 0 0 30px rgba(204, 0, 32, 0.30),
-              0 0 70px rgba(204, 0, 32, 0.15);
-}
-
-.glow-accent {
-  box-shadow: 0 0 30px rgba(170, 255, 0, 0.28),
-              0 0 70px rgba(170, 255, 0, 0.12);
+  box-shadow: 0 0 30px rgba(14, 165, 233, 0.3),
+              0 0 70px rgba(14, 165, 233, 0.15);
 }
 
 .glow-warning {
-  box-shadow: 0 0 30px rgba(255, 214, 0, 0.25),
-              0 0 70px rgba(255, 214, 0, 0.12);
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.2),
+              0 0 70px rgba(245, 158, 11, 0.1);
 }
 
 /* ── Animations ──────────────────────────────────────────────────── */
@@ -162,6 +166,6 @@ textarea::placeholder {
 
 /* ── Selection ───────────────────────────────────────────────────── */
 ::selection {
-  background: rgba(0, 153, 212, 0.35);
+  background: rgba(59, 130, 246, 0.3);
   color: var(--color-text-primary);
 }

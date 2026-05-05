@@ -2,7 +2,7 @@ import { Sparkles, Settings, LogOut, User as UserIcon, ChevronDown } from 'lucid
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const Header = ({ user, streak, onLogout }) => {
+export const Header = ({ user, streak, onLogout, onSettingsClick }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -74,7 +74,13 @@ export const Header = ({ user, streak, onLogout }) => {
                 <p className="text-text-tertiary text-xs mt-0.5">{user?.email || 'No email set'}</p>
               </div>
               <div className="p-1.5">
-                <button className="w-full px-3 py-2.5 flex items-center gap-3 text-text-secondary hover:bg-surface-elevated hover:text-text-primary rounded-lg transition-all duration-150 text-sm">
+                <button
+                  onClick={() => {
+                    onSettingsClick?.();
+                    setShowDropdown(false);
+                  }}
+                  className="w-full px-3 py-2.5 flex items-center gap-3 text-text-secondary hover:bg-surface-elevated hover:text-text-primary rounded-lg transition-all duration-150 text-sm"
+                >
                   <Settings className="w-4 h-4" />
                   Settings
                 </button>
