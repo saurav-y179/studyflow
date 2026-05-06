@@ -1,6 +1,53 @@
 # StudyFlow
 
-StudyFlow is a focused productivity tracker for students who want to build consistent daily study habits. It helps users plan daily tasks, carry unfinished work forward, monitor streaks, and review long-term activity through a contribution-style heatmap.
+<div align="center">
+
+![StudyFlow Logo](./src/assets/hero.png)
+
+**A focused productivity tracker for students who want to build consistent daily study habits.**
+
+[Get Started](#getting-started) • [Features](#features) • [Tech Stack](#tech-stack)
+
+</div>
+
+---
+
+## Download & Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/saurav-y179/studyflow.git
+cd studyflow
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Start the development server
+
+```bash
+npm run dev
+```
+
+The app will open at `http://localhost:5173`
+
+### 4. Build for production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` folder - you can deploy these to any static hosting service (Netlify, Vercel, GitHub Pages, etc.).
+
+### 5. Preview production build locally
+
+```bash
+npm run preview
+```
 
 ## Features
 
