@@ -1,16 +1,74 @@
-# React + Vite
+# StudyFlow
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+StudyFlow is a focused productivity tracker for students who want to build consistent daily study habits. It helps users plan daily tasks, carry unfinished work forward, monitor streaks, and review long-term activity through a contribution-style heatmap.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Daily task planning with separate sections for today and tomorrow.
+- Automatic rollover for unfinished planned tasks.
+- Streak, completion, active-day, and longest-streak metrics.
+- Year-long activity heatmap with completion intensity levels.
+- Local history view for reviewing previous study sessions.
+- Optional local LLM assistant for study insights when a compatible API is running.
+- Browser-only persistence through `localStorage`.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- Vite
+- Tailwind CSS
+- Framer Motion
+- Lucide React
+- date-fns
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Create a production build:
+
+```bash
+npm run build
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+
+## Available Scripts
+
+- `npm run dev` starts the local Vite development server.
+- `npm run build` creates a production build in `dist`.
+- `npm run preview` serves the production build locally.
+- `npm run lint` runs ESLint across the project.
+
+## Local Data
+
+StudyFlow stores user profile details, task entries, streak data, and rollover state in the browser's `localStorage`. Clearing browser storage or using the logout action removes the local data for the app.
+
+## Optional LLM Assistant
+
+The assistant is designed to call a local API at `http://localhost:8000`. The core tracking experience works without that service; assistant responses are only available when a compatible local endpoint is running.
+
+## Project Structure
+
+```text
+src/
+  components/        Reusable UI sections and feature components
+  components/layout/ Shared layout and modal wrappers
+  hooks/             StudyFlow state and app lifecycle logic
+  utils/             Local storage and date helpers
+  main.jsx           React entry point
+```

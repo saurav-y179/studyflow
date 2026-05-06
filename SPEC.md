@@ -7,7 +7,7 @@
 - **Target Users**: Students seeking to build consistent daily study habits
 
 ## Tech Stack
-- React 18 + Vite
+- React 19 + Vite
 - Tailwind CSS
 - LocalStorage for persistence
 - Framer Motion for animations
