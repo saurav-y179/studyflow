@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyFlow AI — Setup Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Lora:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+<!-- Hidden SVG filter bank -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <filter id="roughen" x="-4%" y="-4%" width="108%" height="108%">
+      <feTurbulence type="turbulence" baseFrequency="0.035 0.028" numOctaves="4" seed="12" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="roughen-line" x="-2%" y="-20%" width="104%" height="140%">
+      <feTurbulence type="turbulence" baseFrequency="0.02 0.08" numOctaves="3" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.8" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="ink-bleed" x="-8%" y="-8%" width="116%" height="116%">
+      <feTurbulence type="turbulence" baseFrequency="0.065" numOctaves="5" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<style>
+:root {
+  --paper:   #fdfaf3;
+  --ink:     #18202e;
+  --ink2:    #2e3d52;
+  --ink3:    #4a5f77;
+  --accent:  #3a74b8;
+  --sage:    #3d8a65;
+  --amber:   #b87220;
+  --rose:    #b03838;
+  --sat-red: #b43228;
+  --sat-blue:#2558a8;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:'DM Sans',sans-serif;
+  background:linear-gradient(168deg,#c5dff2 0%,#e4f1fb 40%,#f3ede0 100%);
+  min-height:100vh;
+  color:var(--ink);
+  overflow-x:hidden;
+}
+
+/* ─── CORNER TOGGLE ─── */
+#mode-toggle{
+  position:fixed;
+  top:22px;right:22px;
+  width:32px;height:32px;
+  border-radius:50%;
+  border:none;cursor:pointer;
+  z-index:9999;
+  background:var(--sat-red);
+  box-shadow:
+    0 2px 10px rgba(180,50,40,0.42),
+    inset 0 1px 2px rgba(255,255,255,0.20),
+    inset 0 -1px 2px rgba(0,0,0,0.15);
+  transition:background 0.38s ease,box-shadow 0.38s ease,transform 0.14s ease;
+  outline:none;
+}
+#mode-toggle:hover{transform:scale(1.10)}
+#mode-toggle.simple-mode{
+  background:var(--sat-blue);
+  box-shadow:
+    0 2px 10px rgba(37,88,168,0.42),
+    inset 0 1px 2px rgba(255,255,255,0.20),
+    inset 0 -1px 2px rgba(0,0,0,0.15);
+}
+
+/* ─── CLOUDS ─── */
+.sky-layer{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.cloud{position:absolute;background:rgba(255,255,255,0.50);border-radius:999px;filter:blur(2.5px);animation:drift linear infinite}
+.cloud::before,.cloud::after{content:'';position:absolute;background:inherit;border-radius:inherit}
+.c1{width:200px;height:65px;top:9%;left:-14%;animation-duration:60s;opacity:.65}
+.c1::before{width:110px;height:75px;top:-32px;left:28px}
+.c1::after{width:85px;height:55px;top:-18px;left:95px}
+.c2{width:155px;height:50px;top:24%;left:-10%;animation-duration:78s;animation-delay:-22s;opacity:.45}
+.c2::before{width:78px;height:60px;top:-26px;left:22px}
+.c3{width:280px;height:75px;top:6%;left:-18%;animation-duration:95s;animation-delay:-44s;opacity:.38}
+.c3::before{width:140px;height:85px;top:-38px;left:48px}
+.c3::after{width:105px;height:65px;top:-23px;left:155px}
+.c4{width:180px;height:58px;top:62%;left:-12%;animation-duration:68s;animation-delay:-12s;opacity:.32}
+.c4::before{width:88px;height:65px;top:-28px;left:33px}
+.c5{width:130px;height:46px;top:78%;left:-8%;animation-duration:85s;animation-delay:-57s;opacity:.38}
+.c5::before{width:66px;height:56px;top:-24px;left:18px}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(132vw)}}
+
+/* ─── PAGE ─── */
+.page{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:48px 24px 90px}
+
+/* ─── HIDDEN ─── */
+.hidden{display:none!important}
+
+/* ══════════════════════════════════════
+   CREATIVE VIEW
+══════════════════════════════════════ */
+
+.cr-header{margin-bottom:44px;padding-left:4px}
+.cr-eyebrow{
+  font-family:'Caveat',cursive;font-size:1.05rem;font-weight:600;
+  color:var(--accent);letter-spacing:0.04em;margin-bottom:8px;
+  filter:url(#ink-bleed);display:block;
+}
+.cr-header h1{
+  font-family:'Lora',serif;font-size:clamp(2.1rem,5vw,3.2rem);
+  line-height:1.12;color:var(--ink);font-weight:700;margin-bottom:12px;
+}
+.cr-header h1 em{font-style:italic;color:var(--accent)}
+.cr-sub{
+  font-family:'Caveat',cursive;font-size:1.25rem;color:var(--ink3);
+  line-height:1.6;font-weight:400;
+}
+
+/* Notebook */
+.notebook{
+  background:var(--paper);
+  border-radius:3px;
+  position:relative;
+  padding:52px 56px 60px 80px;
+  box-shadow:2px 3px 0 rgba(26,32,46,0.12),4px 6px 0 rgba(26,32,46,0.06),0 16px 48px rgba(26,32,46,0.09);
+}
+/* Red margin */
+.notebook::before{
+  content:'';position:absolute;left:63px;top:0;bottom:0;width:1.8px;
+  background:linear-gradient(to bottom,
+    transparent 18px,rgba(200,68,68,0.52) 18px,
+    rgba(200,68,68,0.52) calc(100% - 18px),transparent calc(100% - 18px));
+}
+/* Binding holes */
+.nb-holes{position:absolute;left:22px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-evenly;pointer-events:none}
+.hole{width:15px;height:15px;border-radius:50%;background:linear-gradient(145deg,#e4ddd0,#ccc5b8);box-shadow:inset 0 1px 3px rgba(0,0,0,0.18),0 1px 1px rgba(255,255,255,0.6)}
+
+/* SVG ruled lines layer */
+.nb-rules{position:absolute;inset:0;width:100%;pointer-events:none;border-radius:inherit;overflow:hidden}
+.nb-rules line{stroke:rgba(122,174,212,0.20);stroke-width:1}
+
+.nc{position:relative;z-index:2}
+
+/* Handwrite type scale */
+.hw{font-family:'Caveat',cursive;line-height:1.65;color:var(--ink)}
+.hw-xl{font-size:2.05rem;font-weight:700;filter:url(#ink-bleed)}
+.hw-lg{font-size:1.55rem;font-weight:700}
+.hw-md{font-size:1.25rem;font-weight:600}
+.hw-sm{font-size:1.08rem;font-weight:400;color:var(--ink3)}
+
+/* Inline ink emphasis — simulates varied nib pressure */
+.ib{
+  font-family:'Caveat',cursive;font-weight:700;font-size:1.05em;
+  color:var(--ink);
+  text-decoration:underline;text-decoration-thickness:2.5px;
+  text-underline-offset:3px;text-decoration-color:rgba(26,32,46,0.4);
+  filter:url(#ink-bleed);
+}
+.ib-blue {font-family:'Caveat',cursive;font-weight:700;color:var(--accent);filter:url(#ink-bleed)}
+.ib-green{font-family:'Caveat',cursive;font-weight:700;color:var(--sage);filter:url(#ink-bleed)}
+.ib-amber{font-family:'Caveat',cursive;font-weight:700;color:var(--amber);filter:url(#ink-bleed)}
+.ib-rose {font-family:'Caveat',cursive;font-weight:700;color:var(--rose);filter:url(#ink-bleed)}
+
+.scribble{
+  font-family:'Caveat',cursive;font-size:1.0rem;
+  color:rgba(58,116,184,0.50);font-style:italic;
+  text-align:right;margin:4px 0 20px;filter:url(#ink-bleed);
+}
+
+/* Sketch box — SVG rough border */
+.sk{position:relative;padding:26px 30px;margin:24px 0}
+.sk-border{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0}
+.sk-border rect{filter:url(#roughen)}
+.sk-c{position:relative;z-index:1}
+
+/* color fills per box */
+.sk-green .sk-border rect{fill:rgba(238,252,245,0.95);stroke:#3d7a58;stroke-width:2}
+.sk-orange .sk-border rect{fill:rgba(255,249,236,0.95);stroke:#9a6018;stroke-width:2}
+.sk-rose .sk-border rect{fill:rgba(255,242,242,0.95);stroke:#922828;stroke-width:2}
+.sk-blue .sk-border rect{fill:rgba(238,246,255,0.95);stroke:#2a5090;stroke-width:2}
+.sk-dark .sk-border rect{fill:#1b2535;stroke:#3a5a80;stroke-width:1.8}
+
+/* mode label */
+.sk-label{
+  display:inline-block;margin-bottom:10px;
+  font-family:'Caveat',cursive;font-size:0.9rem;font-weight:700;
+  letter-spacing:0.07em;text-transform:uppercase;padding:2px 10px;
+  border-radius:2px;filter:url(#roughen);
+}
+.lbl-g{background:rgba(61,138,101,0.14);color:var(--sage)}
+.lbl-o{background:rgba(184,114,32,0.14);color:var(--amber)}
+.lbl-r{background:rgba(176,56,56,0.14);color:var(--rose)}
+.lbl-b{background:rgba(58,116,184,0.13);color:var(--accent)}
+
+.sk-body{
+  font-family:'DM Sans',sans-serif;font-size:0.96rem;
+  line-height:1.74;color:var(--ink2);margin-bottom:10px;
+}
+.sk-body:last-child{margin-bottom:0}
+
+/* Steps */
+.sk-steps{list-style:none;margin:14px 0 4px}
+.sk-steps li{display:flex;gap:12px;align-items:flex-start;margin-bottom:11px;font-size:0.93rem;line-height:1.65;color:var(--ink2);font-family:'DM Sans',sans-serif}
+.sk-n{
+  min-width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Caveat',cursive;font-size:0.94rem;font-weight:700;
+  flex-shrink:0;margin-top:1px;color:#fff;filter:url(#roughen);
+}
+.sk-green .sk-n{background:var(--sage)}
+.sk-orange .sk-n{background:var(--amber)}
+.sk-rose .sk-n{background:var(--rose)}
+.sk-blue .sk-n{background:var(--accent)}
+
+code{
+  font-family:'Courier New',monospace;font-size:0.84em;
+  background:rgba(58,116,184,0.10);color:var(--accent);
+  padding:1px 5px;border-radius:3px;letter-spacing:-0.02em;
+}
+.sk-dark code{background:rgba(255,255,255,0.10);color:#a8d0f8}
+.sk-dark .sk-body{color:rgba(196,216,238,0.82)}
+.sk-dark .hw{color:#c8dff8}
+
+/* Provider chips */
+.prov-grid{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.prov{
+  position:relative;padding:8px 14px;
+  background:rgba(255,255,252,0.92);
+}
+.prov-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.prov-svg rect{fill:none;stroke:rgba(26,32,46,0.22);stroke-width:1.5;filter:url(#roughen)}
+.prov.star .prov-svg rect{stroke:var(--sage);stroke-width:2}
+.prov-name{display:block;font-family:'Caveat',cursive;font-weight:700;font-size:1.0rem;color:var(--ink);line-height:1.2;margin-bottom:2px;filter:url(#ink-bleed)}
+.prov-note{font-size:0.75rem;color:var(--ink3)}
+
+/* Comparison table */
+.sketch-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:0.88rem}
+.sketch-table th{
+  font-family:'Caveat',cursive;font-size:1.0rem;font-weight:700;
+  color:var(--accent);padding:8px 12px;text-align:left;
+  border-bottom:2px solid rgba(58,116,184,0.22);filter:url(#ink-bleed);
+}
+.sketch-table td{padding:10px 12px;border-bottom:1px solid rgba(58,116,184,0.10);color:var(--ink2);font-family:'DM Sans',sans-serif;font-size:0.88rem;line-height:1.5;vertical-align:top}
+.sketch-table tr:last-child td{border-bottom:none}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dot-g{background:var(--sage)} .dot-o{background:var(--amber)} .dot-r{background:var(--rose)}
+
+/* ══════════════════════════════════════
+   SIMPLE VIEW
+══════════════════════════════════════ */
+.si-header{margin-bottom:32px}
+.si-header h1{font-family:'Lora',serif;font-weight:700;font-size:clamp(1.7rem,4vw,2.4rem);color:var(--ink);margin-bottom:7px}
+.si-header p{font-size:0.93rem;color:var(--ink3);line-height:1.65}
+
+.si-block{
+  background:rgba(255,255,255,0.68);
+  border-radius:6px;border:1px solid rgba(0,0,0,0.07);
+  padding:26px 30px;margin-bottom:18px;
+}
+.si-block h2{
+  font-family:'Lora',serif;font-weight:700;font-size:1.12rem;
+  color:var(--ink);margin-bottom:4px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.si-badge{
+  font-family:'DM Sans',sans-serif;font-size:0.67rem;font-weight:600;
+  letter-spacing:0.1em;text-transform:uppercase;padding:2px 8px;border-radius:3px;
+}
+.bdg-g{background:#d8f0e4;color:#2a6a48}
+.bdg-b{background:#d4e5f8;color:#1e4a82}
+.bdg-r{background:#f8dada;color:#822020}
+.si-intro{font-size:0.9rem;color:var(--ink3);margin:6px 0 14px;line-height:1.6}
+.si-block ul,.si-block ol{padding-left:22px;color:var(--ink2);font-size:0.9rem;line-height:1.72}
+.si-block li{margin-bottom:5px}
+.si-block li ul{margin-top:4px;list-style:circle;padding-left:18px}
+.si-block li ul li{margin-bottom:3px;font-size:0.85rem;color:var(--ink3)}
+.si-block h3{font-size:0.86rem;font-weight:600;color:var(--ink);margin:16px 0 7px;text-transform:uppercase;letter-spacing:0.06em}
+.si-rule{height:1px;background:rgba(0,0,0,0.07);margin:16px 0}
+.si-block code{font-family:'Courier New',monospace;font-size:0.82em;background:rgba(0,0,0,0.05);color:var(--accent);padding:1px 5px;border-radius:3px}
+
+/* ─── FOOTER ─── */
+.footer{text-align:center;margin-top:52px;padding-top:24px;border-top:1px solid rgba(58,116,184,0.14);font-size:0.78rem;color:var(--ink3);line-height:1.7}
+
+@media(max-width:640px){
+  .notebook{padding:36px 18px 40px 50px}
+  .notebook::before{left:42px}
+  .si-block{padding:20px 16px}
+  #mode-toggle{top:14px;right:14px}
+}
+</style>
+</head>
+<body>
+
+<svg style="position:absolute;width:0;height:0" aria-hidden="true">
+  <defs>
+    <filter id="line-warp" x="0" y="-10%" width="100%" height="120%">
+      <feTurbulence type="turbulence" baseFrequency="0.015 0.09" numOctaves="3" seed="9"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- Clouds -->
+<div class="sky-layer" aria-hidden="true">
+  <div class="cloud c1"></div><div class="cloud c2"></div>
+  <div class="cloud c3"></div><div class="cloud c4"></div>
+  <div class="cloud c5"></div>
+</div>
+
+<!-- Corner toggle – satin red = creative, satin blue = simple -->
+<button id="mode-toggle" onclick="toggleMode()" aria-label="Switch reading mode" title="Toggle view"></button>
+
+<div class="page">
+
+  <!-- ══ CREATIVE VIEW ══ -->
+  <div id="view-creative">
+
+    <div class="cr-header">
+      <span class="cr-eyebrow">StudyFlow AI · Setup Guide</span>
+      <h1>Connecting Your <em>AI Brain</em></h1>
+      <p class="cr-sub hw">Everything you need — so Pikachu actually thinks, not just sits there looking cute ☁️</p>
+    </div>
+
+    <div class="notebook">
+      <div class="nb-holes" aria-hidden="true">
+        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+        <div class="hole"></div><div class="hole"></div>
+      </div>
+
+      <!-- Ruled lines SVG -->
+      <svg class="nb-rules" aria-hidden="true" preserveAspectRatio="none">
+        <g filter="url(#line-warp)">
+          <line x1="0" y1="52"  x2="100%" y2="52"/>  <line x1="0" y1="84"  x2="100%" y2="84"/>
+          <line x1="0" y1="116" x2="100%" y2="116"/> <line x1="0" y1="148" x2="100%" y2="148"/>
+          <line x1="0" y1="180" x2="100%" y2="180"/> <line x1="0" y1="212" x2="100%" y2="212"/>
+          <line x1="0" y1="244" x2="100%" y2="244"/> <line x1="0" y1="276" x2="100%" y2="276"/>
+          <line x1="0" y1="308" x2="100%" y2="308"/> <line x1="0" y1="340" x2="100%" y2="340"/>
+          <line x1="0" y1="372" x2="100%" y2="372"/> <line x1="0" y1="404" x2="100%" y2="404"/>
+          <line x1="0" y1="436" x2="100%" y2="436"/> <line x1="0" y1="468" x2="100%" y2="468"/>
+          <line x1="0" y1="500" x2="100%" y2="500"/> <line x1="0" y1="532" x2="100%" y2="532"/>
+          <line x1="0" y1="564" x2="100%" y2="564"/> <line x1="0" y1="596" x2="100%" y2="596"/>
+          <line x1="0" y1="628" x2="100%" y2="628"/> <line x1="0" y1="660" x2="100%" y2="660"/>
+          <line x1="0" y1="692" x2="100%" y2="692"/> <line x1="0" y1="724" x2="100%" y2="724"/>
+          <line x1="0" y1="756" x2="100%" y2="756"/> <line x1="0" y1="788" x2="100%" y2="788"/>
+          <line x1="0" y1="820" x2="100%" y2="820"/> <line x1="0" y1="852" x2="100%" y2="852"/>
+          <line x1="0" y1="884" x2="100%" y2="884"/> <line x1="0" y1="916" x2="100%" y2="916"/>
+          <line x1="0" y1="948" x2="100%" y2="948"/> <line x1="0" y1="980" x2="100%" y2="980"/>
+          <line x1="0" y1="1012" x2="100%" y2="1012"/><line x1="0" y1="1044" x2="100%" y2="1044"/>
+          <line x1="0" y1="1076" x2="100%" y2="1076"/><line x1="0" y1="1108" x2="100%" y2="1108"/>
+          <line x1="0" y1="1140" x2="100%" y2="1140"/><line x1="0" y1="1172" x2="100%" y2="1172"/>
+          <line x1="0" y1="1204" x2="100%" y2="1204"/><line x1="0" y1="1236" x2="100%" y2="1236"/>
+          <line x1="0" y1="1268" x2="100%" y2="1268"/><line x1="0" y1="1300" x2="100%" y2="1300"/>
+          <line x1="0" y1="1332" x2="100%" y2="1332"/><line x1="0" y1="1364" x2="100%" y2="1364"/>
+          <line x1="0" y1="1396" x2="100%" y2="1396"/><line x1="0" y1="1428" x2="100%" y2="1428"/>
+          <line x1="0" y1="1460" x2="100%" y2="1460"/><line x1="0" y1="1492" x2="100%" y2="1492"/>
+          <line x1="0" y1="1524" x2="100%" y2="1524"/><line x1="0" y1="1556" x2="100%" y2="1556"/>
+          <line x1="0" y1="1588" x2="100%" y2="1588"/><line x1="0" y1="1620" x2="100%" y2="1620"/>
+          <line x1="0" y1="1652" x2="100%" y2="1652"/><line x1="0" y1="1684" x2="100%" y2="1684"/>
+          <line x1="0" y1="1716" x2="100%" y2="1716"/><line x1="0" y1="1748" x2="100%" y2="1748"/>
+          <line x1="0" y1="1780" x2="100%" y2="1780"/><line x1="0" y1="1812" x2="100%" y2="1812"/>
+          <line x1="0" y1="1844" x2="100%" y2="1844"/><line x1="0" y1="1876" x2="100%" y2="1876"/>
+          <line x1="0" y1="1908" x2="100%" y2="1908"/><line x1="0" y1="1940" x2="100%" y2="1940"/>
+          <line x1="0" y1="1972" x2="100%" y2="1972"/><line x1="0" y1="2004" x2="100%" y2="2004"/>
+        </g>
+      </svg>
+
+      <div class="nc">
+
+        <p class="hw hw-xl" style="margin-bottom:6px">So — how does Pikachu <em style="font-style:italic;color:var(--accent)">actually</em> think? ☁️</p>
+        <p class="hw hw-sm" style="margin-bottom:26px">Behind that cheerful face sits a blank radio waiting for a signal. You pick the signal.</p>
+
+        <p style="font-family:'DM Sans',sans-serif;font-size:0.97rem;line-height:1.76;color:var(--ink2);margin-bottom:6px">
+          Three options. No wrong answer. They differ in
+          <span class="ib">privacy</span>, in how fast replies come back, and in setup time.
+          The app has a <span class="ib-green">safety net</span> built in so it never breaks,
+          no matter which path you choose.
+        </p>
+        <p class="scribble">↓ start anywhere</p>
+
+        <!-- MODE 1 -->
+        <div class="sk sk-green">
+          <svg class="sk-border" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0.8" y="0.8" width="98.4" height="98.4" rx="2.5" ry="2.5"/>
+          </svg>
+          <div class="sk-c">
+            <span class="sk-label lbl-g">Mode 1</span>
+            <p class="hw hw-lg" style="margin-bottom:4px">Local LLM &nbsp;<span style="font-weight:400;font-size:1rem;color:var(--sage)">· runs on your machine ·</span></p>
+            <p class="hw hw-sm" style="margin-bottom:14px;color:var(--sage)">No internet. Nothing leaves your device. Ever.</p>
+            <p class="sk-body">
+              Imagine hiring a tiny genius to live inside your laptop.
+              The AI model runs <span class="ib">entirely on your computer</span> — StudyFlow whispers to
+              <code>localhost:8000</code>, a private door only your machine can open.
+              Fast if you have a GPU. A little slower on CPU-only.
+              Either way — <span class="ib-green">zero cost, zero cloud.</span>
+            </p>
+            <p class="sk-body">The catch: you do need to download an inference engine and a model. Two steps, not twenty.</p>
+            <ul class="sk-steps">
+              <li><span class="sk-n">1</span><span>Download <span class="ib">LM Studio</span> (lmstudio.ai) or <span class="ib">Ollama</span> (ollama.com) — both free, both straightforward.</span></li>
+              <li><span class="sk-n">2</span><span>Pick a model: <code>llama-3.2-1B</code> (tiny, fast), <code>phi-3-mini</code> (great for older machines), or <code>mistral-7b</code> (smarter, needs 8 GB+ RAM).</span></li>
+              <li><span class="sk-n">3</span><span>Hit <span class="ib">Start Server</span> in the app. Confirm it's on port <code>8000</code>. Different port? Update it in StudyFlow → Chat Settings → Custom Address.</span></li>
+              <li><span class="sk-n">4</span><span><em>Running on a different machine?</em> Swap <code>localhost:8000</code> for that device's local IP — a Raspberry Pi in the corner works perfectly.</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- MODE 2 -->
+        <div class="sk sk-orange">
+          <svg class="sk-border" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0.8" y="0.8" width="98.4" height="98.4" rx="2.5" ry="2.5"/>
+          </svg>
+          <div class="sk-c">
+            <span class="sk-label lbl-o">Mode 2</span>
+            <p class="hw hw-lg" style="margin-bottom:4px">Cloud API &nbsp;<span style="font-weight:400;font-size:1rem;color:var(--amber)">· borrow a supercomputer for pennies ·</span></p>
+            <p class="hw hw-sm" style="margin-bottom:14px;color:var(--amber)">Old laptop? No GPU? This is your mode.</p>
+            <p class="sk-body">
+              You rent computing power from a company with warehouses full of GPUs.
+              Your message hops to their server in milliseconds, the AI replies, hops back.
+              <span class="ib">Blazing fast.</span> You just need an API Key — your personal access pass.
+              Most providers give you one <span class="ib-amber">completely free.</span>
+            </p>
+            <p class="sk-body" style="font-weight:600;color:var(--ink)">Where to get your key — pick any one of these:</p>
+            <div class="prov-grid">
+              <div class="prov star">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">🟢 Groq</span>
+                <span class="prov-note">console.groq.com · Free · No card</span>
+              </div>
+              <div class="prov star">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">🔵 Google Gemini</span>
+                <span class="prov-note">aistudio.google.com · Free key</span>
+              </div>
+              <div class="prov">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">OpenRouter</span>
+                <span class="prov-note">openrouter.ai · One key, many models</span>
+              </div>
+              <div class="prov">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">Mistral AI</span>
+                <span class="prov-note">console.mistral.ai · Free tier</span>
+              </div>
+              <div class="prov">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">Together AI</span>
+                <span class="prov-note">api.together.xyz · $5 free credit</span>
+              </div>
+              <div class="prov">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">OpenAI</span>
+                <span class="prov-note">platform.openai.com · Small credit</span>
+              </div>
+              <div class="prov">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">Cohere</span>
+                <span class="prov-note">cohere.com · Free trial</span>
+              </div>
+              <div class="prov">
+                <svg class="prov-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="1" y="1" width="98" height="98" rx="3"/></svg>
+                <span class="prov-name">Anthropic</span>
+                <span class="prov-note">console.anthropic.com · Claude</span>
+              </div>
+            </div>
+
+            <!-- ★ NEW: Detailed endpoint table for creative view -->
+            <p class="hw hw-sm" style="margin-top:18px;color:var(--amber)">✎ Not locked to Groq — any provider with a chat completions endpoint works. Exact URLs:</p>
+            <table class="sketch-table" style="margin-top:6px">
+              <thead><tr><th>Provider</th><th>Endpoint URL</th></tr></thead>
+              <tbody>
+                <tr><td>Groq</td><td><code>https://api.groq.com/openai/v1/chat/completions</code></td></tr>
+                <tr><td>Google Gemini</td><td><code>https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent</code></td></tr>
+                <tr><td>OpenAI</td><td><code>https://api.openai.com/v1/chat/completions</code></td></tr>
+                <tr><td>Anthropic Claude</td><td><code>https://api.anthropic.com/v1/messages</code></td></tr>
+                <tr><td>Together AI</td><td><code>https://api.together.xyz/v1/chat/completions</code></td></tr>
+                <tr><td>Mistral AI</td><td><code>https://api.mistral.ai/v1/chat/completions</code></td></tr>
+                <tr><td>Cohere</td><td><code>https://api.cohere.ai/v1/chat</code></td></tr>
+                <tr><td>OpenRouter</td><td><code>https://openrouter.ai/api/v1/chat/completions</code></td></tr>
+              </tbody>
+            </table>
+
+            <ul class="sk-steps" style="margin-top:14px">
+              <li><span class="sk-n">1</span><span>Visit any provider → sign up → go to their <span class="ib">API Keys</span> page → generate a key.</span></li>
+              <li><span class="sk-n">2</span><span>StudyFlow → Chat Settings → select <span class="ib">Cloud API</span> → paste your key.</span></li>
+              <li><span class="sk-n">3</span><span>Set Endpoint URL. Groq default: <code>https://api.groq.com/openai/v1/chat/completions</code>. For other providers, use the exact URL from the table above.</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- MODE 3 -->
+        <div class="sk sk-rose">
+          <svg class="sk-border" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0.8" y="0.8" width="98.4" height="98.4" rx="2.5" ry="2.5"/>
+          </svg>
+          <div class="sk-c">
+            <span class="sk-label lbl-r">Mode 3</span>
+            <p class="hw hw-lg" style="margin-bottom:4px">Basic Offline &nbsp;<span style="font-weight:400;font-size:1rem;color:var(--rose)">· the no-setup option ·</span></p>
+            <p class="sk-body">
+              No servers. No keys. No AI at all. Pikachu pulls from 30+ pre-written cheerful lines.
+              <em>"Pika! You're crushing it!"</em> type energy.
+              Charming. <span class="ib-rose">Not smart.</span> Perfect for when you haven't set anything up yet,
+              or just want the interface alive while you sort out credentials.
+            </p>
+          </div>
+        </div>
+
+        <!-- comparison -->
+        <svg style="display:block;width:100%;height:14px;margin:28px 0 20px;overflow:visible" aria-hidden="true">
+          <line x1="0" y1="7" x2="100%" y2="7" stroke="rgba(58,116,184,0.28)" stroke-width="1.5" filter="url(#roughen-line)"/>
+        </svg>
+
+        <p class="hw hw-md" style="margin-bottom:14px">Not sure which? Honest comparison ☁️</p>
+        <table class="sketch-table">
+          <thead>
+            <tr><th>Mode</th><th>Speed</th><th>Cost</th><th>Privacy</th><th>Setup</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="dot dot-g"></span>Local LLM</td>
+              <td>GPU: fast · CPU: slower</td><td>Free</td><td>Total</td><td>Moderate</td>
+            </tr>
+            <tr>
+              <td><span class="dot dot-o"></span>Cloud API</td>
+              <td>Very fast</td><td>Free–small</td><td>Leaves device</td><td>Easy</td>
+            </tr>
+            <tr>
+              <td><span class="dot dot-r"></span>Basic Offline</td>
+              <td>Instant</td><td>Free</td><td>Total</td><td>None</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Fallback -->
+        <div class="sk sk-dark" style="margin-top:30px">
+          <svg class="sk-border" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0.8" y="0.8" width="98.4" height="98.4" rx="2.5" ry="2.5"/>
+          </svg>
+          <div class="sk-c">
+            <p class="hw hw-md" style="color:#a8ccf2;margin-bottom:8px">🛡️ The Auto-Fallback Safety Net</p>
+            <p class="sk-body">
+              Forgot to start your local server? Internet dropped? Key expired?
+              StudyFlow will <span style="color:#fff;font-weight:600">never crash</span>.
+              It silently catches the error and falls back to Basic Offline automatically.
+              Pikachu stays cheerful, your session stays uninterrupted,
+              and a small indicator tells you what happened when you're ready to fix it.
+            </p>
+          </div>
+        </div>
+
+      </div><!-- /nc -->
+    </div><!-- /notebook -->
+  </div><!-- /view-creative -->
+
+
+  <!-- ══ SIMPLE VIEW ══ -->
+  <div id="view-simple" class="hidden">
+
+    <div class="si-header">
+      <h1>AI Setup Guide</h1>
+      <p>Three modes to power Pikachu. Change any time in Chat Settings → gear icon.</p>
+    </div>
+
+    <div class="si-block">
+      <h2>Mode 1 — Local LLM <span class="si-badge bdg-g">Free &amp; Private</span></h2>
+      <p class="si-intro">AI runs on your own computer. No internet needed. Nothing leaves your device.</p>
+      <ul>
+        <li><strong>Best for:</strong> privacy, offline use, machines with a GPU</li>
+        <li><strong>Cost:</strong> free</li>
+        <li><strong>Speed:</strong> fast with a GPU; slower on CPU-only</li>
+      </ul>
+      <h3>Setup</h3>
+      <ol>
+        <li>Download <strong>LM Studio</strong> (lmstudio.ai) or <strong>Ollama</strong> (ollama.com)
+          <ul><li>LM Studio has a GUI; Ollama is lighter and command-line</li></ul>
+        </li>
+        <li>Download a model
+          <ul>
+            <li><code>llama-3.2-1B</code> — small, fast</li>
+            <li><code>phi-3-mini</code> — great for older machines</li>
+            <li><code>mistral-7b</code> — smarter, needs 8 GB+ RAM</li>
+          </ul>
+        </li>
+        <li>Start the local server on port <code>8000</code>
+          <ul><li>Different port? Update in StudyFlow → Chat Settings → Custom Address</li></ul>
+        </li>
+        <li>Running on another machine? Replace <code>localhost:8000</code> with that device's local IP</li>
+      </ol>
+    </div>
+
+    <div class="si-block">
+      <h2>Mode 2 — Cloud API <span class="si-badge bdg-b">Fast &amp; Easy</span></h2>
+      <p class="si-intro">AI runs on an external server. Get an API key and paste it in.</p>
+      <ul>
+        <li><strong>Best for:</strong> older laptops, minimal setup, fastest responses</li>
+        <li><strong>Cost:</strong> free to very cheap — most have a free tier</li>
+        <li><strong>Trade-off:</strong> messages travel to an external server</li>
+      </ul>
+      <h3>Where to get a key</h3>
+      <ul>
+        <li><strong>Groq</strong> — console.groq.com — free, no credit card, extremely fast</li>
+        <li><strong>Google Gemini</strong> — aistudio.google.com — free key, very capable</li>
+        <li><strong>OpenRouter</strong> — openrouter.ai — one key, many models to choose from</li>
+        <li><strong>Mistral AI</strong> — console.mistral.ai — free tier, European servers</li>
+        <li><strong>Together AI</strong> — api.together.xyz — $5 free credit</li>
+        <li><strong>OpenAI</strong> — platform.openai.com — small credit needed</li>
+        <li><strong>Cohere</strong> — cohere.com — free trial tier</li>
+        <li><strong>Anthropic</strong> — console.anthropic.com — Claude models</li>
+      </ul>
+
+      <!-- ★ NEW: Provider endpoint table for simple view -->
+      <h3>Exact Endpoint URLs</h3>
+      <ul>
+        <li><strong>Groq:</strong> <code>https://api.groq.com/openai/v1/chat/completions</code></li>
+        <li><strong>Google Gemini:</strong> <code>https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent</code></li>
+        <li><strong>OpenAI:</strong> <code>https://api.openai.com/v1/chat/completions</code></li>
+        <li><strong>Anthropic Claude:</strong> <code>https://api.anthropic.com/v1/messages</code></li>
+        <li><strong>Together AI:</strong> <code>https://api.together.xyz/v1/chat/completions</code></li>
+        <li><strong>Mistral AI:</strong> <code>https://api.mistral.ai/v1/chat/completions</code></li>
+        <li><strong>Cohere:</strong> <code>https://api.cohere.ai/v1/chat</code></li>
+        <li><strong>OpenRouter:</strong> <code>https://openrouter.ai/api/v1/chat/completions</code></li>
+      </ul>
+
+      <h3>Setup</h3>
+      <ol>
+        <li>Sign up at any provider → API Keys page → generate a key</li>
+        <li>StudyFlow → Chat Settings → Cloud API → paste key</li>
+        <li>Set Endpoint URL
+          <ul>
+            <li>Groq: <code>https://api.groq.com/openai/v1/chat/completions</code></li>
+            <li>Other providers: use the exact URL listed above</li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <div class="si-block">
+      <h2>Mode 3 — Basic Offline <span class="si-badge bdg-r">No Setup</span></h2>
+      <p class="si-intro">No AI. Pikachu uses 30+ pre-written cheerful responses.</p>
+      <ul>
+        <li><strong>Best for:</strong> first-time setup, or just wanting the UI alive</li>
+        <li>Won't answer real questions or analyse tasks</li>
+        <li>Setup: none — just select this mode</li>
+      </ul>
+    </div>
+
+    <div class="si-block">
+      <h2>Auto-Fallback</h2>
+      <p class="si-intro">StudyFlow never crashes due to a connection failure.</p>
+      <ul>
+        <li>Local server off → falls back to Basic Offline automatically</li>
+        <li>Cloud API fails → same fallback</li>
+        <li>A small indicator tells you what happened</li>
+      </ul>
+      <div class="si-rule"></div>
+      <h3>Quick recommendation</h3>
+      <ul>
+        <li>Start with <strong>Groq</strong> (Cloud API) — free, instant, no card needed</li>
+        <li>Switch to <strong>Local LLM</strong> later if you want full privacy or offline use</li>
+      </ul>
+    </div>
+
+  </div><!-- /view-simple -->
+
+  <footer class="footer">
+    <p>StudyFlow AI · Setup Guide &nbsp;·&nbsp; Your API key is stored locally — StudyFlow never forwards it anywhere.</p>
+  </footer>
+
+</div><!-- /page -->
+
+<script>
+  let mode = 'creative';
+  function toggleMode() {
+    mode = mode === 'creative' ? 'simple' : 'creative';
+    const btn = document.getElementById('mode-toggle');
+    const cr  = document.getElementById('view-creative');
+    const si  = document.getElementById('view-simple');
+    if (mode === 'simple') {
+      btn.classList.add('simple-mode');
+      cr.classList.add('hidden');
+      si.classList.remove('hidden');
+    } else {
+      btn.classList.remove('simple-mode');
+      si.classList.add('hidden');
+      cr.classList.remove('hidden');
+    }
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+</script>
+</body>
+</html>

@@ -1,12 +1,12 @@
 import { Sparkles, Settings, LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { VersionSwitcher } from './VersionSwitcher';
 
-export const Header = ({ user, streak, onLogout, onSettingsClick }) => {
+export const Header = ({ user, streak, onLogout, onSettingsClick, onSwitchVersion, currentVersion }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Click-outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -21,37 +21,36 @@ export const Header = ({ user, streak, onLogout, onSettingsClick }) => {
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 glass-strong z-50 flex items-center justify-between px-6">
-      {/* Logo */}
       <div className="flex items-center gap-3">
-        <div className="relative flex items-center justify-center w-10 h-10 bg-primary/15 rounded-xl">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <div className="absolute inset-0 bg-primary/10 rounded-xl animate-pulse-glow" />
+        <div className="relative flex items-center justify-center w-10 h-10 bg-primary/20 rounded-xl border border-primary/30">
+          <Sparkles className="w-5 h-5 text-primary-glow" />
+          <div className="absolute inset-0 bg-primary-glow/20 rounded-xl animate-pulse-glow" />
         </div>
         <span className="text-xl font-semibold text-text-primary tracking-tight">
           StudyFlow
         </span>
       </div>
 
-      {/* Streak badge */}
       <motion.div
-        className="flex items-center gap-2.5 px-5 py-2 rounded-full glass"
-        whileHover={{ scale: 1.02 }}
+        className="flex items-center gap-2.5 px-5 py-2 rounded-full glass border border-accent/20"
+        whileHover={{ scale: 1.03 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       >
         <span className="text-xl">🔥</span>
-        <span className="text-primary font-bold font-mono text-lg">
+        <span className="text-accent-glow font-bold font-mono text-lg">
           {streak.current}
         </span>
         <span className="text-text-secondary text-sm font-medium">day streak</span>
       </motion.div>
 
-      {/* Profile dropdown */}
+      <VersionSwitcher onSwitchVersion={onSwitchVersion} currentVersion={currentVersion} />
+
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-surface-elevated/50 transition-all duration-200"
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-glow rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
+          <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-glow rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
             <UserIcon className="w-4 h-4 text-white" />
           </div>
           <span className="text-text-primary text-sm font-medium hidden sm:block">

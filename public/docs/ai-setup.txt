@@ -1,0 +1,186 @@
+================================================================================
+                  StudyFlow AI — Hosting & Setup Guide
+                      (Plain text – open with Notepad)
+================================================================================
+
+So – how does Pikachu actually think? Behind that cheerful face sits a blank
+radio waiting for a signal. You pick the signal. This guide explains everything
+you need to power Pikachu’s brain.
+
+Three modes. No wrong answer. They differ in privacy, speed, cost, and setup
+time. The app has a safety net built in so it never breaks, no matter which
+path you choose.
+
+-------------------------------------------------------------------------------
+  MODE 1: LOCAL LLM — runs on your machine
+-------------------------------------------------------------------------------
+Best for: privacy lovers, offline warriors, people with a decent GPU.
+Cost: completely free, forever.
+
+How it works:
+  The AI model runs entirely on your computer. StudyFlow talks to a local
+  server at http://localhost:8000 – a private door only your machine can open.
+  Nothing leaves your device. Zero cloud, zero cost.
+
+Speed:
+  Fast with a GPU. Slower on CPU‑only, but still usable.
+
+What you need:
+  An inference engine (like LM Studio or Ollama) and a small language model.
+
+Setup steps (4 simple steps):
+
+  1. Download an inference engine
+     • LM Studio (GUI, beginner‑friendly) – lmstudio.ai
+     • Ollama (command‑line, lightweight) – ollama.com
+     Both are free.
+
+  2. Download a model
+     Recommended small models:
+       - llama-3.2-1B   (tiny, fast)
+       - phi-3-mini     (great for older machines)
+       - qwen-2.5-1.5B  (balanced)
+     On a GPU with 6GB+ VRAM you can try smarter models:
+       - llama-3.2-3B
+       - mistral-7b    (needs 8 GB+ RAM)
+
+  3. Start the local server
+     In LM Studio: go to the "Local Server" tab, select your model, and start
+     it on port 8000.
+     In Ollama: run `ollama serve` and then pull + run a model.
+     Make sure the server is listening on port 8000.
+
+  4. Point StudyFlow to it
+     The app defaults to http://localhost:8000
+     If you use a different port, update it in:
+       Chat Settings → Local LLM → Custom Address.
+     If the model is running on a different machine (e.g., a Raspberry Pi),
+     replace "localhost" with that device's local IP.
+
+-------------------------------------------------------------------------------
+  MODE 2: CLOUD API — borrow a supercomputer for pennies
+-------------------------------------------------------------------------------
+Best for: older laptops, no GPU, fastest responses, minimal setup.
+Cost: free (with Groq) to very cheap (pennies per thousand messages).
+
+How it works:
+  You rent computing power from a company with huge GPU clusters. Your message
+  hops over the internet to their server, the AI replies, and the answer hops
+  back. Blazing fast.
+
+Privacy note:
+  Your messages leave your device. Check the provider’s privacy policy.
+  Most do not train on API data, but it’s worth a look.
+
+Choosing a provider – any of these will work:
+
+  ⭐ Groq (recommended for beginners)
+     Sign up: console.groq.com
+     Cost: free tier, no credit card required
+     Speed: extremely fast
+     Endpoint: https://api.groq.com/openai/v1/chat/completions
+
+  🟦 Google Gemini
+     Sign up: aistudio.google.com
+     Cost: free tier available
+     Endpoint: https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent
+
+  🟧 OpenAI
+     Sign up: platform.openai.com
+     Cost: pay‑as‑you‑go (small credit)
+     Endpoint: https://api.openai.com/v1/chat/completions
+
+  🟪 Anthropic Claude
+     Sign up: console.anthropic.com
+     Cost: pay‑as‑you‑go
+     Endpoint: https://api.anthropic.com/v1/messages
+
+  🟩 Together AI
+     Sign up: api.together.xyz
+     Cost: $5 free credit
+     Endpoint: https://api.together.xyz/v1/chat/completions
+
+  🟦 Mistral AI
+     Sign up: console.mistral.ai
+     Cost: free tier, European servers
+     Endpoint: https://api.mistral.ai/v1/chat/completions
+
+  🟨 Cohere
+     Sign up: cohere.com
+     Cost: free trial tier
+     Endpoint: https://api.cohere.ai/v1/chat
+
+  🟫 OpenRouter
+     Sign up: openrouter.ai
+     Cost: one key gives access to many models
+     Endpoint: https://openrouter.ai/api/v1/chat/completions
+
+Setup steps (3 steps):
+
+  1. Create an account on your chosen provider’s website.
+     Go to the “API Keys” section and generate a key.
+     It will look something like `gsk_abc123...` or `sk-proj-xyz...`
+
+  2. In StudyFlow, open Chat Settings → Cloud API.
+     Paste the API key into the key field.
+
+  3. Set the Endpoint URL.
+     By default it points to Groq. For any other provider, replace the URL
+     with the exact endpoint from the list above.
+     (You only need to do this once.)
+
+-------------------------------------------------------------------------------
+  MODE 3: BASIC OFFLINE — the no‑setup option
+-------------------------------------------------------------------------------
+Best for: first‑time setup, or if you just want a cute Pikachu waving without
+          any AI backend.
+Cost: always free. No internet needed.
+
+How it works:
+  Pikachu pulls from a library of 30+ pre‑written cheerful lines like
+  “Pika! You’re crushing it!” or “Pika‑pi! Keep going!”
+  It won’t analyze your tasks or answer questions, but it will always cheer
+  you on.
+
+Setup: none – just select this mode and you’re done.
+
+-------------------------------------------------------------------------------
+  AUTO‑FALLBACK – the unbreakable safety net
+-------------------------------------------------------------------------------
+StudyFlow never crashes because of a connection failure.
+
+  • If you selected Local LLM but forgot to start the server, it falls back
+    to Basic Offline automatically.
+  • If you selected Cloud API and the internet drops (or key expires), it
+    falls back to Basic Offline.
+
+Pikachu stays cheerful, your session stays uninterrupted, and a small
+indicator tells you what happened so you can fix it later.
+
+-------------------------------------------------------------------------------
+  QUICK COMPARISON (text table)
+-------------------------------------------------------------------------------
+
+Mode              Speed           Cost          Privacy        Setup difficulty
+------------------------------------------------------------------------------
+Local LLM         GPU: fast       Free          Total          Moderate
+                  CPU: slower
+
+Cloud API         Very fast       Free‑small    Leaves device  Easy
+
+Basic Offline     Instant         Free          Total          None
+
+-------------------------------------------------------------------------------
+  RECOMMENDATION
+-------------------------------------------------------------------------------
+
+  • Start with Groq (Cloud API) – it’s free, instant, and requires no credit
+    card.
+  • Switch to Local LLM later if you want full privacy or offline use.
+  • Use Basic Offline as a friendly placeholder while you set up.
+
+Your API key is stored locally – StudyFlow never forwards it anywhere.
+All modes can be changed at any time in Chat Settings (gear icon).
+================================================================================
+              End of guide — happy studying with Pikachu! ⚡
+================================================================================

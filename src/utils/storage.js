@@ -1,23 +1,191 @@
+// ── Storage Layer ─────────────────────────────────────────────────────
+// Uses localStorage as a fast in-memory cache.
+// Syncs data to/from the Express API server (file-based) in background.
+// Falls back to localStorage-only if the API is unreachable.
+
 const STORAGE_KEYS = {
   USER: 'studyflow_user',
   ENTRIES: 'studyflow_entries',
-  PROMOTED: 'studyflow_promoted', // tracks which dates have had tasks promoted
+  PROMOTED: 'studyflow_promoted',
 };
 
 export const COMPLETION_THRESHOLD = 0.8;
 
-// ── User ──────────────────────────────────────────────────────────────
-export const getUser = () => {
+// ── Server sync helpers ───────────────────────────────────────────────
+const API_BASE = '/api';
+let _serverAvailable = null; // null = unknown, true/false after check
+
+const checkServer = async () => {
+  if (_serverAvailable !== null) return _serverAvailable;
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.USER);
-    return data ? JSON.parse(data) : null;
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
+    _serverAvailable = res.ok;
   } catch {
-    return null;
+    _serverAvailable = false;
+  }
+  return _serverAvailable;
+};
+
+const apiGet = async (endpoint) => {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`);
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
+};
+
+const apiPost = async (endpoint, data) => {
+  try {
+    await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  } catch {}
+};
+
+// Fire-and-forget background sync (doesn't block the UI)
+const syncToServer = (endpoint, data) => {
+  apiPost(endpoint, data).catch(() => {});
+};
+
+// ── Initial sync from server ──────────────────────────────────────────
+// Called once on app startup to pull file-based data into localStorage.
+export const syncFromServer = async () => {
+  const isAvailable = await checkServer();
+  if (!isAvailable) return false;
+
+  try {
+    // Pull profiles
+    const profiles = await apiGet('/profiles');
+    if (profiles && Array.isArray(profiles)) {
+      localStorage.setItem('studyflow_profiles', JSON.stringify(profiles));
+    }
+
+    // Pull active profile
+    const active = await apiGet('/active');
+    if (active && active.activeId) {
+      localStorage.setItem('studyflow_active_profile', active.activeId);
+
+      // Pull entries + promoted for active profile
+      const id = active.activeId;
+      const entries = await apiGet(`/entries/${id}`);
+      if (entries && Array.isArray(entries)) {
+        localStorage.setItem(getKeyForId(STORAGE_KEYS.ENTRIES, id), JSON.stringify(entries));
+      }
+
+      const promoted = await apiGet(`/promoted/${id}`);
+      if (promoted && Array.isArray(promoted)) {
+        localStorage.setItem(getKeyForId(STORAGE_KEYS.PROMOTED, id), JSON.stringify(promoted));
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
   }
 };
 
+// ── Profile / User Management ─────────────────────────────────────────
+export const getProfiles = () => {
+  try {
+    const data = localStorage.getItem('studyflow_profiles');
+    if (data) return JSON.parse(data);
+
+    // Migration: Check if there is an existing legacy user
+    const legacyUser = localStorage.getItem(STORAGE_KEYS.USER);
+    if (legacyUser) {
+      const parsed = JSON.parse(legacyUser);
+      const profile = { ...parsed, id: 'default' };
+      localStorage.setItem('studyflow_profiles', JSON.stringify([profile]));
+      localStorage.setItem('studyflow_active_profile', 'default');
+      return [profile];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+};
+
+export const getActiveProfileId = () => {
+  return localStorage.getItem('studyflow_active_profile');
+};
+
+export const switchProfile = (profileId) => {
+  localStorage.setItem('studyflow_active_profile', profileId);
+  syncToServer('/active', { activeId: profileId });
+
+  // Also pull entries for the new profile from server
+  if (_serverAvailable) {
+    apiGet(`/entries/${profileId}`).then(entries => {
+      if (entries && Array.isArray(entries)) {
+        localStorage.setItem(getKeyForId(STORAGE_KEYS.ENTRIES, profileId), JSON.stringify(entries));
+      }
+    }).catch(() => {});
+    apiGet(`/promoted/${profileId}`).then(promoted => {
+      if (promoted && Array.isArray(promoted)) {
+        localStorage.setItem(getKeyForId(STORAGE_KEYS.PROMOTED, profileId), JSON.stringify(promoted));
+      }
+    }).catch(() => {});
+  }
+};
+
+export const createNewProfile = () => {
+  localStorage.removeItem('studyflow_active_profile');
+  syncToServer('/active', { activeId: null });
+};
+
+const getKeyForId = (baseKey, profileId) => {
+  if (!profileId || profileId === 'default') return baseKey;
+  return `${baseKey}_${profileId}`;
+};
+
+const getKey = (baseKey) => {
+  const profileId = getActiveProfileId();
+  return getKeyForId(baseKey, profileId);
+};
+
+export const getUser = () => {
+  const activeId = getActiveProfileId();
+  if (!activeId) return null;
+  const profiles = getProfiles();
+  return profiles.find(p => p.id === activeId) || null;
+};
+
 export const saveUser = (user) => {
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  let profiles = getProfiles();
+  const isNew = !user.id;
+
+  const userToSave = { ...user };
+  if (isNew) {
+    userToSave.id = `profile_${Date.now()}`;
+  }
+
+  const existingIndex = profiles.findIndex(p => p.id === userToSave.id);
+  if (existingIndex >= 0) {
+    profiles[existingIndex] = userToSave;
+  } else {
+    profiles.push(userToSave);
+  }
+
+  localStorage.setItem('studyflow_profiles', JSON.stringify(profiles));
+  localStorage.setItem('studyflow_active_profile', userToSave.id);
+
+  // also save legacy for backwards compat
+  if (userToSave.id === 'default') {
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userToSave));
+  }
+
+  // Sync to server
+  syncToServer('/profiles', userToSave);
+  syncToServer('/active', { activeId: userToSave.id });
+};
+
+// ── Logout (safe — only clears session, not data) ────────────────────
+export const logout = () => {
+  // Only clear the active session marker, NOT the actual data
+  localStorage.removeItem('studyflow_active_profile');
+  syncToServer('/active', { activeId: null });
 };
 
 // ── Date helpers ──────────────────────────────────────────────────────
@@ -58,7 +226,7 @@ export const addDaysDateStr = (dateStr, days) => {
 // ── Entries CRUD ──────────────────────────────────────────────────────
 export const getEntries = () => {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.ENTRIES);
+    const data = localStorage.getItem(getKey(STORAGE_KEYS.ENTRIES));
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
@@ -81,7 +249,16 @@ export const saveEntry = (entry) => {
   else entries.push(cleanEntry);
 
   entries.sort((a, b) => new Date(a.date) - new Date(b.date));
-  localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
+
+  const key = getKey(STORAGE_KEYS.ENTRIES);
+  localStorage.setItem(key, JSON.stringify(entries));
+
+  // Sync entries to server
+  const profileId = getActiveProfileId();
+  if (profileId) {
+    syncToServer(`/entries/${profileId}`, entries);
+  }
+
   return entries;
 };
 
@@ -138,7 +315,7 @@ export const updateTaskInEntry = (dateStr, taskId, updates) => {
 
 // ── Planned task promotion (idempotent, runs once per day) ────────────
 export const promotePlannedTasks = (currentDate = getToday()) => {
-  const promotedKey = STORAGE_KEYS.PROMOTED;
+  const promotedKey = getKey(STORAGE_KEYS.PROMOTED);
   const alreadyPromoted = JSON.parse(localStorage.getItem(promotedKey) || '[]');
 
   if (alreadyPromoted.includes(currentDate)) return; // already done today
@@ -186,6 +363,12 @@ export const promotePlannedTasks = (currentDate = getToday()) => {
   // Keep only last 7 days of promotion records
   const trimmed = alreadyPromoted.slice(-7);
   localStorage.setItem(promotedKey, JSON.stringify(trimmed));
+
+  // Sync promoted records to server
+  const profileId = getActiveProfileId();
+  if (profileId) {
+    syncToServer(`/promoted/${profileId}`, trimmed);
+  }
 };
 
 // ── Time-lock rules ──────────────────────────────────────────────────

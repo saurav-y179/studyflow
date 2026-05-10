@@ -6,6 +6,7 @@ import {
   calculateStreak,
   calculateMomentum,
   promotePlannedTasks,
+  syncFromServer,
 } from '../utils/storage';
 
 export const useStudyFlow = () => {
@@ -16,22 +17,36 @@ export const useStudyFlow = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Run idempotent planned-task promotion on mount (handles day rollover)
-    promotePlannedTasks();
+    const init = async () => {
+      // Sync data from server files → localStorage cache
+      await syncFromServer();
 
-    const userData = getUser();
-    const entriesData = getEntries();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setUser(userData);
-    setEntries(entriesData);
+      // Run idempotent planned-task promotion on mount (handles day rollover)
+      promotePlannedTasks();
 
-    if (userData) {
-      const streakData = calculateStreak(entriesData);
-      setStreak(streakData);
-      setMomentum(calculateMomentum(streakData.current));
-    }
+      let userData = getUser();
 
-    setIsLoading(false);
+      // Auto-create a default profile on first launch so the UI loads immediately
+      if (!userData) {
+        const defaultUser = { name: 'User', email: '', dailyGoal: '4' };
+        saveUser(defaultUser);
+        userData = getUser();
+      }
+
+      const entriesData = getEntries();
+      setUser(userData);
+      setEntries(entriesData);
+
+      if (userData) {
+        const streakData = calculateStreak(entriesData);
+        setStreak(streakData);
+        setMomentum(calculateMomentum(streakData.current));
+      }
+
+      setIsLoading(false);
+    };
+
+    init();
   }, []);
 
   const refreshEntries = useCallback(() => {
