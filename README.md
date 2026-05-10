@@ -36,6 +36,44 @@ If you only want to use the app on this computer, use the batch file shortcut:
 
 The batch file runs the same command as `npm run dev`. It starts both the backend API server and the frontend development server.
 
+## Easiest Download For Other Users
+
+Yes: the easiest shareable version is a single release zip.
+
+Create it with:
+
+```bash
+npm run release
+```
+
+This builds the app and creates:
+
+```text
+release/studyflow.zip
+```
+
+Upload that zip file to a GitHub Release. After that, users can download, install, and start StudyFlow from Windows PowerShell with one command:
+
+```powershell
+$url="https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/studyflow.zip"; iwr $url -OutFile studyflow.zip; Expand-Archive .\studyflow.zip -DestinationPath .\studyflow -Force; cd .\studyflow; npm install --omit=dev; npm start
+```
+
+Replace `YOUR-USER/YOUR-REPO` with the real GitHub repository path.
+
+On macOS or Linux, the equivalent terminal command is:
+
+```bash
+curl -L -o studyflow.zip https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/studyflow.zip && unzip -o studyflow.zip -d studyflow && cd studyflow && npm install --omit=dev && npm start
+```
+
+The release app opens at:
+
+```text
+http://localhost:3001
+```
+
+People can also unzip the release manually, run `npm install --omit=dev`, and double-click `Start StudyFlow Release.bat`.
+
 ## Batch File Shortcut
 
 The included `Start StudyFlow.bat` file is a Windows shortcut-style launcher for the project. It is useful because you do not have to open a terminal, change directories, and type commands every time.
@@ -292,6 +330,20 @@ npm start
 
 When `dist/` exists, `server.js` can serve the built frontend and the API from the same Express server.
 
+Create a shareable release zip:
+
+```bash
+npm run release
+```
+
+The zip is written to:
+
+```text
+release/studyflow.zip
+```
+
+This release bundle is meant for normal users. It includes the built `dist/` frontend, the Express server, package metadata, docs, and a production launcher batch file. It does not include `node_modules/` or saved personal data from `data/`.
+
 ## Available Scripts
 
 | Command | What it does |
@@ -301,6 +353,7 @@ When `dist/` exists, `server.js` can serve the built frontend and the API from t
 | `npm run dev:vite` | Starts only the Vite frontend. |
 | `npm run dev:server` | Starts only the Express API server. |
 | `npm run build` | Builds the frontend into `dist/`. |
+| `npm run release` | Builds the app and creates a single release zip in `release/`. |
 | `npm run preview` | Previews the production frontend build locally. |
 | `npm start` | Starts the Express server. |
 | `npm run lint` | Runs ESLint on the project. |
@@ -310,6 +363,10 @@ When `dist/` exists, `server.js` can serve the built frontend and the API from t
 ```text
 .
 +-- Start StudyFlow.bat       Windows launcher shortcut
++-- Start StudyFlow Release.bat
++-- RELEASE.md                Release zip install instructions
++-- scripts/
+|   +-- create-release.ps1    Builds the single release zip
 +-- dev.js                    Starts API server and Vite together
 +-- server.js                 Express API server and production static server
 +-- data/                     Local JSON data files

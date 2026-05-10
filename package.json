@@ -9,6 +9,8 @@
     "dev:vite": "vite",
     "dev:server": "node server.js",
     "build": "vite build",
+    "release": "npm run build && npm run release:windows",
+    "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-release.ps1",
     "start": "node server.js",
     "lint": "eslint .",
     "preview": "vite preview"
