@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Send, X } from 'lucide-react';
 
 const LLM_API = 'http://localhost:8000';
 
 export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
-  const [isOpen, setIsOpen] = useState(isFloating || false);
   const [messages, setMessages] = useState([
     {
       role: 'assistant',

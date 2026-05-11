@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Generates a jagged lightning path from top to bottom
@@ -34,29 +34,32 @@ export const GlobalLightning = () => {
     const interval = setInterval(() => {
       // 30% chance to strike every 4 seconds
       if (Math.random() > 0.7) {
-        const id = Date.now();
-        setFlashes((prev) => [...prev, id]);
+        const startX1 = Math.random() * dimensions.width;
+        const startX2 = Math.random() * dimensions.width;
+        const flash = {
+          id: Date.now(),
+          path1: generateLightningPath(startX1, -50, dimensions.height + 50, 10),
+          path2: generateLightningPath(startX2, -50, dimensions.height + 50, 12),
+          path3: generateLightningPath(startX1 + 100, dimensions.height * 0.3, dimensions.height, 8),
+        };
+        setFlashes((prev) => [...prev, flash]);
         
         // Remove it after animation finishes
         setTimeout(() => {
-          setFlashes((prev) => prev.filter(f => f !== id));
+          setFlashes((prev) => prev.filter((f) => f.id !== flash.id));
         }, 1500);
       }
     }, 4000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [dimensions]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       <AnimatePresence>
-        {flashes.map((id) => {
-          const startX1 = Math.random() * dimensions.width;
-          const startX2 = Math.random() * dimensions.width;
-
-          return (
+        {flashes.map((flash) => (
             <motion.div
-              key={id}
+              key={flash.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 1, 0.1, 0.9, 0] }}
               exit={{ opacity: 0 }}
@@ -78,7 +81,7 @@ export const GlobalLightning = () => {
                 
                 {/* Main Bolt 1 */}
                 <motion.path
-                  d={generateLightningPath(startX1, -50, dimensions.height + 50, 10)}
+                  d={flash.path1}
                   fill="none"
                   stroke="#737fe3"
                   strokeWidth="5"
@@ -90,7 +93,7 @@ export const GlobalLightning = () => {
                 
                 {/* Main Bolt 2 */}
                 <motion.path
-                  d={generateLightningPath(startX2, -50, dimensions.height + 50, 12)}
+                  d={flash.path2}
                   fill="none"
                   stroke="#ffff00"
                   strokeWidth="3"
@@ -102,7 +105,7 @@ export const GlobalLightning = () => {
 
                 {/* Branching Bolt */}
                 <motion.path
-                  d={generateLightningPath(startX1 + 100, dimensions.height * 0.3, dimensions.height, 8)}
+                  d={flash.path3}
                   fill="none"
                   stroke="#ffffff"
                   strokeWidth="2"
@@ -113,8 +116,7 @@ export const GlobalLightning = () => {
                 />
               </svg>
             </motion.div>
-          );
-        })}
+        ))}
       </AnimatePresence>
     </div>
   );

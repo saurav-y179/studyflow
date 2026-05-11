@@ -8,14 +8,12 @@ import { Dashboard } from './components/Dashboard';
 import { History } from './components/History';
 import { LLMAssistant } from './components/LLMAssistant';
 import { useStudyFlow } from './hooks/useStudyFlow';
-import { logout } from './utils/storage';
 
-function AppV1({ currentVersion, onSwitchVersion }) {
+function AppV1({ onSwitchVersion }) {
   const {
     user,
     entries,
     streak,
-    momentum,
     isLoading,
     registerUser,
     refreshEntries,
@@ -32,11 +30,6 @@ function AppV1({ currentVersion, onSwitchVersion }) {
   const handleSaveSettings = (userData) => {
     registerUser(userData);
     setIsSettingsOpen(false);
-  };
-
-  const handleLogout = () => {
-    logout();
-    window.location.reload();
   };
 
   if (isLoading) {

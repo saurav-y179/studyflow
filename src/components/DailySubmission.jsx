@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Check, Lock, X, Pencil, Calendar, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
@@ -13,30 +13,25 @@ import {
 } from '../utils/storage';
 
 export const DailySubmission = ({ onEntriesChange }) => {
-  const [todayEntry, setTodayEntry] = useState(null);
-  const [tomorrowEntry, setTomorrowEntry] = useState(null);
+  const [todayEntry, setTodayEntry] = useState(() => getTodayEntry());
+  const [tomorrowEntry, setTomorrowEntry] = useState(() => getTomorrowEntry());
   const [newTaskText, setNewTaskText] = useState('');
   const [newTomorrowTask, setNewTomorrowTask] = useState('');
 
   const currentDate = getToday();
   const tomorrowDate = getTomorrow();
 
-  useEffect(() => {
-    setTodayEntry(getTodayEntry());
-    setTomorrowEntry(getTomorrowEntry());
-  }, [currentDate]);
-
-  const updateToday = (updated) => {
+  const updateToday = useCallback((updated) => {
     saveEntry(updated);
     setTodayEntry(updated);
     onEntriesChange?.();
-  };
+  }, [onEntriesChange]);
 
-  const updateTomorrow = (updated) => {
+  const updateTomorrow = useCallback((updated) => {
     saveEntry(updated);
     setTomorrowEntry(updated);
     onEntriesChange?.();
-  };
+  }, [onEntriesChange]);
 
   const handleAddTask = useCallback((taskText, isForTomorrow = false) => {
     if (!taskText.trim()) return;
@@ -51,7 +46,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
     const entry = getTodayEntry();
     updateToday({ ...entry, todayTasks: [...(entry.todayTasks || []), task] });
     setNewTaskText('');
-  }, [currentDate, tomorrowDate]);
+  }, [currentDate, tomorrowDate, updateToday, updateTomorrow]);
 
   const handleToggleTask = useCallback((task, isForTomorrow = false) => {
     const permission = canEditTask(task, currentDate);
@@ -62,7 +57,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
       t.id === task.id ? { ...t, completed: !t.completed } : t
     );
     setter({ ...target, todayTasks: nextTasks });
-  }, [currentDate]);
+  }, [currentDate, updateToday, updateTomorrow]);
 
   const handleDeleteTask = useCallback((task, isForTomorrow = false) => {
     const permission = canEditTask(task, currentDate);
@@ -71,7 +66,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
     const setter = isForTomorrow ? updateTomorrow : updateToday;
     const nextTasks = (target?.todayTasks || []).filter((t) => t.id !== task.id);
     setter({ ...target, todayTasks: nextTasks });
-  }, [currentDate]);
+  }, [currentDate, updateToday, updateTomorrow]);
 
   const handleEditTask = useCallback((task, newText, isForTomorrow = false) => {
     if (!newText.trim()) return;
@@ -83,7 +78,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
       t.id === task.id ? { ...t, text: newText.trim() } : t
     );
     setter({ ...target, todayTasks: nextTasks });
-  }, [currentDate]);
+  }, [currentDate, updateToday, updateTomorrow]);
 
   if (!todayEntry || !tomorrowEntry) return null;
 

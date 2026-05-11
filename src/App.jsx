@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Header } from './components/Header';
-import { MomentumBar } from './components/MomentumBar';
 import { DailySubmission } from './components/DailySubmission';
 import { ContributionGrid } from './components/ContributionGrid';
 import { Dashboard } from './components/Dashboard';
@@ -9,7 +7,6 @@ import { History } from './components/History';
 import { LLMAssistant } from './components/LLMAssistant';
 import { AuthModals } from './components/layout/AuthModals';
 import { useStudyFlow } from './hooks/useStudyFlow';
-import { logout } from './utils/storage';
 
 function AppWithVideo({ currentVersion, onSwitchVersion }) {
   const {
@@ -27,11 +24,6 @@ function AppWithVideo({ currentVersion, onSwitchVersion }) {
   const handleSaveSettings = (userData) => {
     registerUser(userData);
     setIsSettingsOpen(false);
-  };
-
-  const handleLogout = () => {
-    logout();
-    window.location.reload();
   };
 
   if (isLoading) {

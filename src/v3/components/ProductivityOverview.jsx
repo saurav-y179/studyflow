@@ -47,6 +47,7 @@ export const ProductivityOverview = ({ entries, streak }) => {
   const totalHours = Math.floor(totalMinutes / 60);
   const totalMins = totalMinutes % 60;
   const maxBarValue = Math.max(...weeklyData.map((d) => d.total), 1);
+  const lastWeekDelta = Math.min(30, Math.max(10, streak.current * 3 + 10));
 
   return (
     <div className="bg-[#030610]/90 backdrop-blur-xl border-2 border-[#16E2F5]/40 shadow-[0_0_20px_rgba(22,226,245,0.15)] rounded-2xl p-5 mb-3">
@@ -70,7 +71,7 @@ export const ProductivityOverview = ({ entries, streak }) => {
           <span className="text-3xl font-bold text-white tabular-nums">{totalMins}m</span>
         </div>
         {streak.current > 0 && (
-          <span className="text-[11px] text-[#00ffb2]">+{Math.round(Math.random() * 20 + 10)}% vs last week</span>
+          <span className="text-[11px] text-[#00ffb2]">+{lastWeekDelta}% vs last week</span>
         )}
       </div>
 

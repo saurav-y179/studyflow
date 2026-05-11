@@ -14,7 +14,7 @@ const INTENSITY_COLORS = [
 
 export const ActivityHeatmap = ({ entries }) => {
   const [tooltip, setTooltip] = useState(null);
-  const [timeRange, setTimeRange] = useState('1 Year');
+  const [timeRange] = useState('1 Year');
 
   const gridData = useMemo(() => {
     const today = new Date();
@@ -46,7 +46,7 @@ export const ActivityHeatmap = ({ entries }) => {
 
       return { date, dateStr, level, entry };
     });
-  }, [entries]);
+  }, [entries, timeRange]);
 
   const weeks = useMemo(() => {
     const result = [];

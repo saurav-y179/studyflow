@@ -18,7 +18,6 @@ export const HistoryPanel = ({ entries }) => {
   const getActivityType = (entry) => {
     const pct = getCompletionPercentage(entry);
     const tasks = entry.todayTasks || [];
-    const completed = tasks.filter((t) => t.completed).length;
 
     if (pct >= 80) return { label: `Completed: ${tasks[0]?.text || 'Tasks'}`, color: ACTIVITY_COLORS.completed, time: '' };
     if (pct >= 50) return { label: `Focus Session`, color: ACTIVITY_COLORS.focus, time: '' };

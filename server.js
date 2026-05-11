@@ -12,6 +12,10 @@ const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
 
 // ── Middleware ─────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  next();
+});
 app.use(cors());
 app.use(express.json());
 
@@ -51,6 +55,69 @@ const sanitizeId = (id) => {
   return id.replace(/[^a-zA-Z0-9_-]/g, '_');
 };
 
+const deleteIfExists = (filepath) => {
+  try {
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+  } catch (err) {
+    console.warn(`Could not delete ${path.basename(filepath)}:`, err.message);
+  }
+};
+
+// ── Input Validation Helpers ─────────────────────────────────────────────
+const MAX_PAYLOAD_SIZE = 100 * 1024; // 100KB max per write
+const MAX_ARRAY_ITEMS = 5000; // max items in arrays
+
+const isValidProfile = (profile) => {
+  if (!profile || typeof profile !== 'object') return false;
+  if (!profile.id || typeof profile.id !== 'string') return false;
+  if (profile.id.length > 100) return false;
+  if (profile.name && typeof profile.name !== 'string') return false;
+  if (profile.name && profile.name.length > 100) return false;
+  if (profile.email && typeof profile.email !== 'string') return false;
+  if (profile.email && profile.email.length > 200) return false;
+  return true;
+};
+
+const isValidEntries = (entries) => {
+  if (!Array.isArray(entries)) return false;
+  if (entries.length > MAX_ARRAY_ITEMS) return false;
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') return false;
+    if (!entry.date || typeof entry.date !== 'string') return false;
+    if (entry.date.length > 20) return false;
+    if (entry.todayTasks && !Array.isArray(entry.todayTasks)) return false;
+    if (entry.todayTasks && entry.todayTasks.length > 100) return false;
+    for (const task of (entry.todayTasks || [])) {
+      if (!task || typeof task !== 'object') return false;
+      if (task.text && typeof task.text !== 'string') return false;
+      if (task.text && task.text.length > 500) return false;
+    }
+  }
+  return true;
+};
+
+const isValidChat = (chat) => {
+  if (!Array.isArray(chat)) return false;
+  if (chat.length > 500) return false; // limit chat history
+  for (const msg of chat) {
+    if (!msg || typeof msg !== 'object') return false;
+    if (!msg.role || typeof msg.role !== 'string') return false;
+    if (!msg.content || typeof msg.content !== 'string') return false;
+    if (msg.content.length > 2000) return false;
+  }
+  return true;
+};
+
+const isValidPromoted = (promoted) => {
+  if (!Array.isArray(promoted)) return false;
+  if (promoted.length > 100) return false;
+  for (const date of promoted) {
+    if (typeof date !== 'string') return false;
+    if (date.length > 20) return false;
+  }
+  return true;
+};
+
 // ── PROFILES ──────────────────────────────────────────────────────────
 
 // GET /api/profiles — list all profiles
@@ -62,11 +129,14 @@ app.get('/api/profiles', (req, res) => {
 // POST /api/profiles — create or update a profile
 app.post('/api/profiles', (req, res) => {
   const profile = req.body;
-  if (!profile || !profile.id) {
-    return res.status(400).json({ error: 'Profile must have an id' });
+  if (!isValidProfile(profile)) {
+    return res.status(400).json({ error: 'Invalid profile data' });
   }
 
   const profiles = readJSON('profiles.json', []);
+  if (profiles.length > 50) {
+    return res.status(400).json({ error: 'Too many profiles' });
+  }
   const idx = profiles.findIndex(p => p.id === profile.id);
   if (idx >= 0) {
     profiles[idx] = profile;
@@ -89,9 +159,9 @@ app.delete('/api/profiles/:id', (req, res) => {
   const entriesFile = path.join(DATA_DIR, `entries_${id}.json`);
   const promotedFile = path.join(DATA_DIR, `promoted_${id}.json`);
   const chatFile = path.join(DATA_DIR, `chat_${id}.json`);
-  try { if (fs.existsSync(entriesFile)) fs.unlinkSync(entriesFile); } catch {}
-  try { if (fs.existsSync(promotedFile)) fs.unlinkSync(promotedFile); } catch {}
-  try { if (fs.existsSync(chatFile)) fs.unlinkSync(chatFile); } catch {}
+  deleteIfExists(entriesFile);
+  deleteIfExists(promotedFile);
+  deleteIfExists(chatFile);
 
   res.json({ ok: true });
 });
@@ -107,6 +177,12 @@ app.get('/api/active', (req, res) => {
 // POST /api/active — set active profile ID
 app.post('/api/active', (req, res) => {
   const { activeId } = req.body;
+  if (activeId !== null && typeof activeId !== 'string') {
+    return res.status(400).json({ error: 'Invalid activeId' });
+  }
+  if (activeId && activeId.length > 100) {
+    return res.status(400).json({ error: 'Invalid activeId' });
+  }
   writeJSON('active.json', { activeId });
   res.json({ ok: true });
 });
@@ -124,6 +200,13 @@ app.get('/api/entries/:profileId', (req, res) => {
 app.post('/api/entries/:profileId', (req, res) => {
   const id = sanitizeId(req.params.profileId);
   const entries = req.body;
+  if (!isValidEntries(entries)) {
+    return res.status(400).json({ error: 'Invalid entries data' });
+  }
+  const payloadSize = JSON.stringify(entries).length;
+  if (payloadSize > MAX_PAYLOAD_SIZE) {
+    return res.status(400).json({ error: 'Payload too large' });
+  }
   writeJSON(`entries_${id}.json`, entries);
   res.json({ ok: true });
 });
@@ -141,6 +224,9 @@ app.get('/api/promoted/:profileId', (req, res) => {
 app.post('/api/promoted/:profileId', (req, res) => {
   const id = sanitizeId(req.params.profileId);
   const promoted = req.body;
+  if (!isValidPromoted(promoted)) {
+    return res.status(400).json({ error: 'Invalid promoted data' });
+  }
   writeJSON(`promoted_${id}.json`, promoted);
   res.json({ ok: true });
 });
@@ -158,6 +244,9 @@ app.get('/api/chat/:profileId', (req, res) => {
 app.post('/api/chat/:profileId', (req, res) => {
   const id = sanitizeId(req.params.profileId);
   const chat = req.body;
+  if (!isValidChat(chat)) {
+    return res.status(400).json({ error: 'Invalid chat data' });
+  }
   writeJSON(`chat_${id}.json`, chat);
   res.json({ ok: true });
 });
@@ -185,7 +274,7 @@ const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   // Fallback: serve index.html for any non-API route (SPA support)
-  app.use((req, res, next) => {
+  app.use((req, res) => {
     if (req.path.startsWith('/api')) {
       return res.status(404).json({ error: 'Not found' });
     }

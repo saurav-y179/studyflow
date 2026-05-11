@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Settings, LogOut, User as UserIcon } from 'lucide-react';
 import { VersionSwitcher } from '../../components/VersionSwitcher';
 
-export const TopBar = ({ user, streak, onLogout, onSettingsClick, onSwitchVersion, currentVersion }) => {
+export const TopBar = ({ user, onLogout, onSettingsClick, onSwitchVersion, currentVersion }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 

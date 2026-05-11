@@ -12,8 +12,15 @@ const POSES = [
 const IDLE_CYCLE_MS = 10000;
 const INTERACTION_PAUSE_MS = 30000;
 
+const SPARKS = [
+  { delay: 0, left: 25, duration: 2.2, y: -33, x: [-3, 8] },
+  { delay: 0.7, left: 58, duration: 1.9, y: -41, x: [4, -7] },
+  { delay: 1.4, left: 72, duration: 2.4, y: -29, x: [-5, 10] },
+  { delay: 2.0, left: 38, duration: 2.1, y: -38, x: [2, -9] },
+];
+
 // Tiny electric spark particle
-const Spark = ({ delay, left, duration }) => (
+const Spark = ({ delay, left, duration, y, x }) => (
   <motion.div
     className="absolute rounded-full pointer-events-none"
     style={{
@@ -25,8 +32,8 @@ const Spark = ({ delay, left, duration }) => (
       boxShadow: `0 0 5px ${delay > 1 ? '#60A5FA' : '#FDE047'}`,
     }}
     animate={{
-      y: [0, -25 - Math.random() * 20],
-      x: [(Math.random() - 0.5) * 12, (Math.random() - 0.5) * 22],
+      y: [0, y],
+      x,
       opacity: [0, 0.9, 0],
       scale: [0.4, 1.2, 0],
     }}
@@ -40,7 +47,7 @@ const Spark = ({ delay, left, duration }) => (
 );
 
 export const ActivePikachu = ({ recentActivity }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const lastInteraction = useRef(0);
   const prevActivity = useRef(null);
@@ -55,7 +62,6 @@ export const ActivePikachu = ({ recentActivity }) => {
 
   // Greet on first load: wave for 2.5s then settle
   useEffect(() => {
-    setCurrentIndex(1);
     const t = setTimeout(() => setCurrentIndex(0), 2500);
     return () => clearTimeout(t);
   }, []);
@@ -88,13 +94,6 @@ export const ActivePikachu = ({ recentActivity }) => {
     setCurrentIndex((p) => (p + 1) % POSES.length);
   }, []);
 
-  const sparks = useRef([
-    { delay: 0, left: 25, duration: 2.2 },
-    { delay: 0.7, left: 58, duration: 1.9 },
-    { delay: 1.4, left: 72, duration: 2.4 },
-    { delay: 2.0, left: 38, duration: 2.1 },
-  ]).current;
-
   return (
     <div className="relative mx-auto mb-2 flex flex-col items-center">
       <motion.div
@@ -117,7 +116,7 @@ export const ActivePikachu = ({ recentActivity }) => {
         />
 
         {/* Electric sparks */}
-        {sparks.map((s, i) => (
+        {SPARKS.map((s, i) => (
           <Spark key={i} {...s} />
         ))}
 

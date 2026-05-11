@@ -1,6 +1,7 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import AppWithVideo from './App.jsx'
 import AppV1 from './AppV1.jsx'
 import AppV3 from './v3/AppV3.jsx'
@@ -24,6 +25,8 @@ function MainApp() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <MainApp />
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
   </StrictMode>,
 )

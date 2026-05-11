@@ -1,12 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Check,
   Lock,
   X,
-  Pencil,
-  Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -15,7 +13,6 @@ import {
   getToday,
   createTask,
   canEditTask,
-  getCompletionPercentage,
 } from '../../utils/storage';
 
 // Subject icons/colors for visual flair
@@ -50,7 +47,6 @@ export const TodayTasksCard = ({ onEntriesChange }) => {
   const tasks = entry?.todayTasks || [];
   const completedTasks = tasks.filter((t) => t.completed).length;
   const totalTasks = tasks.length;
-  const completionPercent = getCompletionPercentage(entry);
 
   const plannedTasks = tasks.filter(
     (t) => canEditTask(t, currentDate).reason === 'planned_yesterday'
@@ -66,16 +62,16 @@ export const TodayTasksCard = ({ onEntriesChange }) => {
     onEntriesChange?.();
   };
 
-  const handleAddTask = useCallback(() => {
+  const handleAddTask = () => {
     if (!newTaskText.trim()) return;
     const task = createTask(newTaskText, currentDate);
     task.duration = estimateDuration(newTaskText);
     const current = getTodayEntry();
     updateEntry({ ...current, todayTasks: [...(current.todayTasks || []), task] });
     setNewTaskText('');
-  }, [newTaskText, currentDate]);
+  };
 
-  const handleToggleTask = useCallback((task) => {
+  const handleToggleTask = (task) => {
     const permission = canEditTask(task, currentDate);
     if (!permission.canToggle) return;
     const current = getTodayEntry();
@@ -83,15 +79,15 @@ export const TodayTasksCard = ({ onEntriesChange }) => {
       t.id === task.id ? { ...t, completed: !t.completed } : t
     );
     updateEntry({ ...current, todayTasks: nextTasks });
-  }, [currentDate]);
+  };
 
-  const handleDeleteTask = useCallback((task) => {
+  const handleDeleteTask = (task) => {
     const permission = canEditTask(task, currentDate);
     if (!permission.canEdit) return;
     const current = getTodayEntry();
     const nextTasks = (current.todayTasks || []).filter((t) => t.id !== task.id);
     updateEntry({ ...current, todayTasks: nextTasks });
-  }, [currentDate]);
+  };
 
   return (
     <div className="bg-[#030610]/90 backdrop-blur-xl border-2 border-[#16E2F5]/40 shadow-[0_0_20px_rgba(22,226,245,0.15)] rounded-2xl overflow-hidden flex flex-col">

@@ -57,8 +57,8 @@ export const useStudyFlow = () => {
     setMomentum(calculateMomentum(streakData.current));
   }, []);
 
-  const registerUser = useCallback((userData) => {
-    saveUser(userData);
+  const registerUser = useCallback(async (userData) => {
+    await saveUser(userData);
     setUser(userData);
   }, []);
 

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Calendar, BookOpen, FlaskConical, Code2, FileText, Dumbbell } from 'lucide-react';
+import { Plus, X, BookOpen } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import {
   getTomorrowEntry,
@@ -31,7 +31,7 @@ export const TomorrowPlanCard = ({ onEntriesChange }) => {
     onEntriesChange?.();
   };
 
-  const handleAddTask = useCallback(() => {
+  const handleAddTask = () => {
     if (!newTaskText.trim()) return;
     const task = createTask(newTaskText, tomorrowDate);
     // Assign a time slot
@@ -48,13 +48,13 @@ export const TomorrowPlanCard = ({ onEntriesChange }) => {
     const current = getTomorrowEntry();
     updateEntry({ ...current, todayTasks: [...(current.todayTasks || []), task] });
     setNewTaskText('');
-  }, [newTaskText, tomorrowDate, tasks]);
+  };
 
-  const handleDeleteTask = useCallback((task) => {
+  const handleDeleteTask = (task) => {
     const current = getTomorrowEntry();
     const nextTasks = (current.todayTasks || []).filter((t) => t.id !== task.id);
     updateEntry({ ...current, todayTasks: nextTasks });
-  }, [tomorrowDate]);
+  };
 
   // Build formatted tomorrow date
   const tomorrowFormatted = format(addDays(new Date(), 1), 'EEEE, MMMM d, yyyy');
@@ -78,7 +78,7 @@ export const TomorrowPlanCard = ({ onEntriesChange }) => {
       {/* Tasks with time slots */}
       <div className="px-5 pb-2 flex-1 space-y-1 max-h-[280px] overflow-y-auto">
         <AnimatePresence mode="popLayout">
-          {tasks.map((task, index) => {
+          {tasks.map((task) => {
             const tagStyle = TAG_STYLES[task.tag] || TAG_STYLES.Focus;
             return (
               <motion.div

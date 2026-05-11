@@ -30,7 +30,9 @@ const apiGet = async (endpoint) => {
   try {
     const res = await fetch(`${API_BASE}${endpoint}`);
     if (res.ok) return await res.json();
-  } catch {}
+  } catch (err) {
+    console.warn(`API GET ${endpoint} failed:`, err);
+  }
   return null;
 };
 
@@ -41,7 +43,9 @@ const apiPost = async (endpoint, data) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-  } catch {}
+  } catch (err) {
+    console.warn(`API POST ${endpoint} failed:`, err);
+  }
 };
 
 // Fire-and-forget background sync (doesn't block the UI)
@@ -51,32 +55,42 @@ const syncToServer = (endpoint, data) => {
 
 // ── Initial sync from server ──────────────────────────────────────────
 // Called once on app startup to pull file-based data into localStorage.
+// Only pulls from server if localStorage is empty (first run or cleared).
 export const syncFromServer = async () => {
   const isAvailable = await checkServer();
   if (!isAvailable) return false;
 
   try {
-    // Pull profiles
-    const profiles = await apiGet('/profiles');
-    if (profiles && Array.isArray(profiles)) {
-      localStorage.setItem('studyflow_profiles', JSON.stringify(profiles));
+    // Only sync profiles if localStorage doesn't already have them
+    // (prevents overwriting recent changes that haven't finished syncing to server)
+    const existingProfiles = localStorage.getItem('studyflow_profiles');
+    if (!existingProfiles) {
+      const profiles = await apiGet('/profiles');
+      if (profiles && Array.isArray(profiles)) {
+        localStorage.setItem('studyflow_profiles', JSON.stringify(profiles));
+      }
     }
 
-    // Pull active profile
-    const active = await apiGet('/active');
-    if (active && active.activeId) {
-      localStorage.setItem('studyflow_active_profile', active.activeId);
+    // Only sync active profile if nothing is set in localStorage
+    const existingActive = localStorage.getItem('studyflow_active_profile');
+    if (!existingActive) {
+      const active = await apiGet('/active');
+      if (active && active.activeId) {
+        localStorage.setItem('studyflow_active_profile', active.activeId);
+      }
+    }
 
-      // Pull entries + promoted for active profile
-      const id = active.activeId;
-      const entries = await apiGet(`/entries/${id}`);
+    // Always pull entries for the currently active profile (no conflict since entries are date-based)
+    const activeId = localStorage.getItem('studyflow_active_profile');
+    if (activeId) {
+      const entries = await apiGet(`/entries/${activeId}`);
       if (entries && Array.isArray(entries)) {
-        localStorage.setItem(getKeyForId(STORAGE_KEYS.ENTRIES, id), JSON.stringify(entries));
+        localStorage.setItem(getKeyForId(STORAGE_KEYS.ENTRIES, activeId), JSON.stringify(entries));
       }
 
-      const promoted = await apiGet(`/promoted/${id}`);
+      const promoted = await apiGet(`/promoted/${activeId}`);
       if (promoted && Array.isArray(promoted)) {
-        localStorage.setItem(getKeyForId(STORAGE_KEYS.PROMOTED, id), JSON.stringify(promoted));
+        localStorage.setItem(getKeyForId(STORAGE_KEYS.PROMOTED, activeId), JSON.stringify(promoted));
       }
     }
 
@@ -152,7 +166,7 @@ export const getUser = () => {
   return profiles.find(p => p.id === activeId) || null;
 };
 
-export const saveUser = (user) => {
+export const saveUser = async (user) => {
   let profiles = getProfiles();
   const isNew = !user.id;
 
@@ -176,9 +190,10 @@ export const saveUser = (user) => {
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userToSave));
   }
 
-  // Sync to server
-  syncToServer('/profiles', userToSave);
-  syncToServer('/active', { activeId: userToSave.id });
+  // Sync to server - now waits for server to confirm (not fire-and-forget)
+  // This ensures data is saved before user closes the app
+  await apiPost('/profiles', userToSave);
+  await apiPost('/active', { activeId: userToSave.id });
 };
 
 // ── Logout (safe — only clears session, not data) ────────────────────
