@@ -1,12 +1,41 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { DailySubmission } from './components/DailySubmission';
 import { ContributionGrid } from './components/ContributionGrid';
 import { Dashboard } from './components/Dashboard';
 import { History } from './components/History';
-import { LLMAssistant } from './components/LLMAssistant';
 import { AuthModals } from './components/layout/AuthModals';
 import { useStudyFlow } from './hooks/useStudyFlow';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import Splitting from 'splitting';
+
+gsap.registerPlugin(ScrollTrigger);
+
+function HeroTitle({ text, className }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    Splitting({ target: el, by: 'chars' });
+    const chars = el.querySelectorAll('.char');
+    gsap.from(chars, {
+      opacity: 0,
+      y: 80,
+      rotateX: -90,
+      stagger: 0.05,
+      duration: 0.9,
+      ease: 'power4.out',
+      delay: 0.2,
+    });
+    return () => {
+      if (el) el.innerHTML = text;
+    };
+  }, []);
+
+  return <h1 ref={ref} className={className}>{text}</h1>;
+}
 
 function AppWithVideo({ currentVersion, onSwitchVersion }) {
   const {
@@ -17,14 +46,46 @@ function AppWithVideo({ currentVersion, onSwitchVersion }) {
     isLoading,
     registerUser,
     refreshEntries,
+    switchActiveProfile,
+    clearActiveProfile,
   } = useStudyFlow();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const heroRef = useRef(null);
+  const contentWrapRef = useRef(null);
 
-  const handleSaveSettings = (userData) => {
+  const handleSaveSettings = useCallback((userData) => {
     registerUser(userData);
     setIsSettingsOpen(false);
-  };
+  }, [registerUser]);
+
+  useEffect(() => {
+    if (!user) return;
+    const ctx = gsap.context(() => {
+      ScrollTrigger.create({
+        trigger: heroRef.current,
+        start: 'top top',
+        end: '+=100%',
+        pin: true,
+        pinSpacing: false,
+      });
+      const content = contentWrapRef.current;
+      if (content) {
+        gsap.set(content, { willChange: 'transform' });
+        gsap.from(content, {
+          scrollTrigger: {
+            trigger: content,
+            start: 'top bottom',
+            end: 'top top',
+            scrub: 1.2,
+          },
+          y: 120,
+          opacity: 0.6,
+        });
+      }
+    });
+    return () => ctx.revert();
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -43,7 +104,7 @@ function AppWithVideo({ currentVersion, onSwitchVersion }) {
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" style={{ background: '#040510' }}>
         <video
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ opacity: 0.25, filter: 'brightness(0.7) saturate(1.4) hue-rotate(220deg)' }}
+          style={{ opacity: 0.3, filter: 'brightness(0.6) saturate(1.4) hue-rotate(220deg)' }}
           src="https://cdn.pixabay.com/video/2022/06/21/121261-724696832_large.mp4"
           autoPlay
           loop
@@ -62,6 +123,8 @@ function AppWithVideo({ currentVersion, onSwitchVersion }) {
         onRegister={registerUser}
         onSaveSettings={handleSaveSettings}
         onCloseSettings={() => setIsSettingsOpen(false)}
+        onSwitchProfile={switchActiveProfile}
+        onCreateNewProfile={clearActiveProfile}
       />
 
       {user && (
@@ -122,7 +185,7 @@ function AppWithVideo({ currentVersion, onSwitchVersion }) {
                   <svg className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.5)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
                   </svg>
-                  <span className="text-sm font-bold text-white font-mono">T1</span>
+                  <span className="text-sm font-bold text-white font-mono">{currentVersion === 'app' ? 'T2' : 'T1'}</span>
                 </button>
               </div>
 
@@ -198,28 +261,76 @@ function AppWithVideo({ currentVersion, onSwitchVersion }) {
             </div>
           </div>
 
-          <motion.main
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="relative z-10 pt-32 pb-12 px-6 md:px-10 lg:px-16 max-w-[1600px] mx-auto"
+          {/* ── Hero Section (pinned) ── */}
+          <section
+            ref={heroRef}
+            className="relative z-10 flex items-center justify-center"
+            style={{ minHeight: 'calc(100vh - 8rem)' }}
           >
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            <div className="text-center px-6 max-w-5xl mx-auto">
+              <p
+                className="font-medium tracking-[0.2em] uppercase mb-6"
+                style={{
+                  fontSize: 'clamp(0.7rem, 1.2vw, 0.85rem)',
+                  color: '#737fe3',
+                  mixBlendMode: 'screen',
+                }}
+              >
+                Welcome back
+              </p>
+              <div
+                className="font-bold leading-[1.05] tracking-tight mb-8"
+                style={{
+                  fontSize: 'clamp(3rem, 10vw, 8rem)',
+                  color: '#ffffff',
+                  mixBlendMode: 'difference',
+                }}
+              >
+                <HeroTitle text={user?.name || 'StudyFlow'} />
+              </div>
+              <p
+                className="font-light mx-auto max-w-2xl"
+                style={{
+                  fontSize: 'clamp(1rem, 2.5vw, 1.5rem)',
+                  color: '#a1aaed',
+                  mixBlendMode: 'screen',
+                }}
+              >
+                Your study journey, amplified. Every session, every streak —{' '}
+                <span className="font-semibold text-white">built by you</span>.
+              </p>
+              <motion.div
+                className="mt-16"
+                animate={{ y: [0, 10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <svg className="w-6 h-6 mx-auto" style={{ color: '#737fe3' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </motion.div>
+            </div>
+          </section>
+
+          {/* ── Dashboard Content (scrolls over hero) ── */}
+          <section
+            ref={contentWrapRef}
+            className="relative pb-12 px-6 md:px-10 lg:px-16 max-w-[1600px] mx-auto"
+            style={{ zIndex: 20, background: '#040814', minHeight: '100vh' }}
+          >
+            <div className="pt-8 grid grid-cols-1 xl:grid-cols-12 gap-8">
               <div className="xl:col-span-8 space-y-6">
-                <Dashboard entries={entries} streak={streak} />
+                <Dashboard entries={entries} streak={streak} dailyGoal={user?.dailyGoal ? parseInt(user.dailyGoal) : 4} />
                 <DailySubmission onEntriesChange={refreshEntries} />
                 <ContributionGrid entries={entries} />
               </div>
-
               <div className="xl:col-span-4 space-y-6">
                 <History entries={entries} />
               </div>
             </div>
-          </motion.main>
+          </section>
         </>
       )}
 
-      <LLMAssistant entries={entries} streak={streak} />
     </div>
   );
 }

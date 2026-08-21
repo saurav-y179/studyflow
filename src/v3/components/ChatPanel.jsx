@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, X, Settings, ArrowLeft, FileText, Trash2, AlertTriangle } from 'lucide-react';
 import { getMiniBrainResponse } from '../utils/pikachuBrain';
 
-export const ChatPanel = ({ isOpen, onClose, entries, sidebarWidth = 200, user }) => {
+export const ChatPanel = ({ isOpen, onClose, entries, streak, sidebarWidth = 200, user, connections }) => {
   const panelTransition = { type: 'spring', stiffness: 420, damping: 34, mass: 0.75 };
   const viewTransition = { duration: 0.18, ease: [0.22, 1, 0.36, 1] };
 
@@ -24,62 +24,48 @@ export const ChatPanel = ({ isOpen, onClose, entries, sidebarWidth = 200, user }
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [llmMode, setLlmMode] = useState(() => localStorage.getItem('flow_llmMode') || 'local');
   const [localHost, setLocalHost] = useState(() => localStorage.getItem('flow_localHost') || 'http://localhost:8000');
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('flow_apiKey') || '');
+  // API key stored in sessionStorage (cleared when browser closes) - more secure than localStorage
+  const [apiKey, setApiKey] = useState(() => sessionStorage.getItem('flow_apiKey') || '');
 
-  // Persist settings
+  // Persist settings (apiKey goes to sessionStorage, others to localStorage)
   useEffect(() => {
     localStorage.setItem('flow_llmMode', llmMode);
     localStorage.setItem('flow_localHost', localHost);
-    localStorage.setItem('flow_apiKey', apiKey);
+    sessionStorage.setItem('flow_apiKey', apiKey);
   }, [llmMode, localHost, apiKey]);
 
-  // Fetch chat history from server when profile changes
+  // Persist chat history in localStorage (no server dependency)
   useEffect(() => {
     let isCancelled = false;
 
-    if (user?.id) {
-      queueMicrotask(() => {
-        if (!isCancelled) setIsHistoryLoaded(false);
-      });
-
-      fetch(`/api/chat/${user.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (isCancelled) return;
-          if (data && data.length > 0) {
-            setMessages(data);
-          } else {
-            setMessages([{
-              role: 'assistant',
-              content: "Hi! I'm Pikachu, your Flow AI assistant. How can I help you today?",
-            }]);
+    const historyKey = `flow_chat_${user?.id || 'guest'}`;
+    queueMicrotask(() => {
+      if (!isCancelled) {
+        try {
+          const saved = localStorage.getItem(historyKey);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.length > 0) {
+              setMessages(parsed);
+            }
           }
-          setIsHistoryLoaded(true);
-        })
-        .catch(err => {
-          if (isCancelled) return;
-          console.error(err);
-          setIsHistoryLoaded(true);
-        });
-    } else {
-      queueMicrotask(() => {
-        if (!isCancelled) setIsHistoryLoaded(true);
-      });
-    }
+        } catch { /* ignore parse errors */ }
+        setIsHistoryLoaded(true);
+      }
+    });
 
     return () => {
       isCancelled = true;
     };
   }, [user?.id]);
 
-  // Save chat history to server
+  // Save chat history to localStorage
   useEffect(() => {
-    if (isHistoryLoaded && user?.id && messages.length > 0) {
-      fetch(`/api/chat/${user.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messages)
-      }).catch(console.error);
+    if (isHistoryLoaded && messages.length > 0) {
+      const historyKey = `flow_chat_${user?.id || 'guest'}`;
+      try {
+        localStorage.setItem(historyKey, JSON.stringify(messages));
+      } catch { /* quota exceeded or storage unavailable */ }
     }
   }, [messages, user?.id, isHistoryLoaded]);
 
@@ -126,6 +112,8 @@ export const ChatPanel = ({ isOpen, onClose, entries, sidebarWidth = 200, user }
 
   const getContext = () => {
     if (!entries || entries.length === 0) return 'No activity yet.';
+    const currentStreak = streak?.current || 0;
+    const longestStreak = streak?.longest || 0;
     const recentEntries = entries.slice(-7);
     const today = entries.find(
       (e) => e.date === new Date().toISOString().slice(0, 10)
@@ -136,6 +124,8 @@ export const ChatPanel = ({ isOpen, onClose, entries, sidebarWidth = 200, user }
       : 0;
 
     return `Today's Completion: ${todayPct}%
+Current Streak: ${currentStreak} days
+Longest Streak: ${longestStreak} days
 Recent Activity:
 ${recentEntries.map((e) => {
     const tasks = e.todayTasks || [];
@@ -144,9 +134,9 @@ ${recentEntries.map((e) => {
   }).join('\n')}`.trim();
   };
 
-  const callLLM = async (userMessage) => {
-    // Calculate raw context for the Mini-Brain
+  const callLLM = async (userMessage, onStream) => {
     let todayPct = 0;
+    let currentStreak = streak?.current || 0;
     if (entries && entries.length > 0) {
       const today = entries.find(e => e.date === new Date().toISOString().slice(0, 10));
       const todayTasks = today?.todayTasks || [];
@@ -157,12 +147,15 @@ ${recentEntries.map((e) => {
 
     try {
       if (llmMode === 'basic') {
-        await new Promise(r => setTimeout(r, 600)); // fake delay
-        return { text: getMiniBrainResponse(userMessage, todayPct, 0), isFallback: false }; // Passing 0 for streak for now
+        await new Promise(r => setTimeout(r, 600));
+        return { text: getMiniBrainResponse(userMessage, todayPct, currentStreak), isFallback: false };
       }
 
       const context = getContext();
-      const systemPrompt = `You are Pikachu, a highly motivating, energetic, and helpful productivity AI assistant for StudyFlow. You love helping students stay focused. Occasionally use Pikachu expressions like 'Pika!' or 'Pika pika!'. You have access to the user's productivity data:\n\n${context}\n\nAnswer the user's message concisely and energetically (2-3 sentences max).`;
+      const connectionsContext = connections && connections.length > 0
+        ? `\nExternal Connections:\n${connections.map(c => `- ${c.label} (${c.platform}): ${c.stats ? Object.values(c.stats).map(s => `${s.label}: ${s.value}`).join(', ') : 'No stats'}`).join('\n')}`
+        : '';
+      const systemPrompt = `You are Pikachu, a highly motivating, energetic, and helpful productivity AI assistant for StudyFlow. You love helping students stay focused. Occasionally use Pikachu expressions like 'Pika!' or 'Pika pika!'. You have access to the user's productivity data:\n\n${context}\nStreak: ${currentStreak} days${connectionsContext}\n\nAnswer the user's message concisely and energetically (2-3 sentences max).`;
 
       const reqMessages = [
         { role: 'system', content: systemPrompt },
@@ -183,7 +176,7 @@ ${recentEntries.map((e) => {
         body: JSON.stringify({
           model: llmMode === 'api' ? 'llama-3.3-70b-versatile' : 'llama-3.2-1b',
           messages: reqMessages,
-          stream: false,
+          stream: true,
         }),
       });
 
@@ -191,12 +184,38 @@ ${recentEntries.map((e) => {
         const errorText = await response.text();
         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
-      
-      const data = await response.json();
-      return { text: data.choices[0].message.content.trim(), isFallback: false };
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(l => l.trim());
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                fullText += content;
+                onStream?.(fullText);
+              }
+            } catch { /* ignore malformed JSON chunks */ }
+          }
+        }
+      }
+
+      return { text: fullText.trim(), isFallback: false };
     } catch (error) {
       console.error('LLM error, falling back to Mini-Brain:', error);
-      return { text: getMiniBrainResponse(userMessage, todayPct, 0), isFallback: true };
+      return { text: getMiniBrainResponse(userMessage, todayPct, currentStreak), isFallback: true };
     }
   };
 
@@ -205,12 +224,29 @@ ${recentEntries.map((e) => {
 
     const userMessage = input.trim();
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+
+    const assistantIndex = messages.length + 1;
+
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: '', isStreaming: true }]);
     setIsLoading(true);
 
-    const response = await callLLM(userMessage);
+    const response = await callLLM(userMessage, (text) => {
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[assistantIndex]) {
+          next[assistantIndex] = { ...next[assistantIndex], content: text };
+        }
+        return next;
+      });
+    });
     
-    setMessages((prev) => [...prev, { role: 'assistant', content: response.text, isFallback: response.isFallback }]);
+    setMessages((prev) => {
+      const next = [...prev];
+      if (next[assistantIndex]) {
+        next[assistantIndex] = { role: 'assistant', content: response.text, isFallback: response.isFallback };
+      }
+      return next;
+    });
     setIsLoading(false);
   };
 
@@ -239,7 +275,7 @@ ${recentEntries.map((e) => {
           animate={{ opacity: 1, x: 0, y: 0 }}
           exit={{ opacity: 0, x: -26, y: 8 }}
           transition={panelTransition}
-          className="fixed left-3 right-3 bottom-14 lg:left-[var(--chat-left)] lg:right-auto lg:w-96 h-[min(620px,calc(100dvh-5rem))] lg:h-[600px] z-[70] flex flex-col overflow-hidden rounded-3xl shadow-2xl lg:transition-[left] lg:duration-300"
+          className="fixed left-3 right-3 bottom-12 lg:left-[var(--chat-left)] lg:right-auto lg:w-96 h-[min(620px,calc(100dvh-4rem))] lg:h-[600px] z-[70] flex flex-col overflow-hidden rounded-3xl shadow-2xl lg:transition-[left] lg:duration-300"
           style={{
             '--chat-left': `${sidebarWidth + 10}px`,
             background: 'linear-gradient(170deg, rgba(189,245,22,0.12) 0%, rgba(100,233,134,0.1) 40%, rgba(144,238,144,0.08) 70%, rgba(152,255,152,0.1) 100%)',
@@ -302,7 +338,7 @@ ${recentEntries.map((e) => {
                     <h3 className="text-white font-bold text-sm tracking-wide">
                       Flow AI <span style={{ color: '#BDF516' }}>Pikachu</span>
                     </h3>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: '#90EE90' }}>Active</p>
+                    <p className="text-micro uppercase tracking-wider" style={{ color: '#90EE90' }}>Active</p>
                   </motion.div>
                 ) : (
                   <motion.h3
@@ -366,7 +402,7 @@ ${recentEntries.map((e) => {
                   className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-[#BDF516]/10 border border-[#BDF516]/30 rounded-xl text-[#BDF516] hover:bg-[#BDF516]/20 transition-colors cursor-pointer text-center"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Web Guide</span>
+                  <span className="text-micro font-bold uppercase tracking-wider">Web Guide</span>
                 </a>
                 <a 
                   href="/docs/ai-setup.txt" 
@@ -375,7 +411,7 @@ ${recentEntries.map((e) => {
                   className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 bg-white/5 border border-white/20 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-center"
                 >
                   <FileText className="w-4 h-4" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Notepad Guide</span>
+                  <span className="text-micro font-bold uppercase tracking-wider">Notepad Guide</span>
                 </a>
               </div>
 
@@ -395,7 +431,7 @@ ${recentEntries.map((e) => {
                 </p>
                 {llmMode === 'local' && (
                   <div className="space-y-2 mt-2" onClick={e => e.stopPropagation()}>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-white/50">Host Address</label>
+                    <label className="text-micro font-bold uppercase tracking-wider text-white/50">Host Address</label>
                     <input 
                       type="text" 
                       value={localHost} 
@@ -423,7 +459,7 @@ ${recentEntries.map((e) => {
                 {llmMode === 'api' && (
                   <div className="space-y-3 mt-2" onClick={e => e.stopPropagation()}>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1 block">Groq API Key</label>
+                      <label className="text-micro font-bold uppercase tracking-wider text-white/50 mb-1 block">Groq API Key</label>
                       <input 
                         type="password" 
                         value={apiKey} 
@@ -516,7 +552,7 @@ ${recentEntries.map((e) => {
               </motion.div>
             ))}
 
-            {isLoading && (
+            {isLoading && (!messages[messages.length - 1]?.content) && (
               <div className="flex justify-start">
                 <div
                   className="px-5 py-3.5 rounded-2xl rounded-bl-sm flex gap-1.5"
@@ -533,6 +569,56 @@ ${recentEntries.map((e) => {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+              {/* Quick suggestion pills */}
+              {messages.length <= 1 && !isLoading && (
+                <div className="px-5 pb-2 flex flex-wrap gap-1.5">
+                  {[
+                    'How am I doing today?',
+                    'Motivate me!',
+                    'Analyze my streak',
+                    'Study tips?',
+                  ].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => {
+                        setInput(suggestion);
+                        setTimeout(() => {
+                          setInput('');
+                          const fakeEvent = { key: 'Enter', shiftKey: false, preventDefault: () => {} };
+                          // Directly call handleSend with the suggestion
+                          setMessages((prev) => [...prev, { role: 'user', content: suggestion }, { role: 'assistant', content: '', isStreaming: true }]);
+                          setIsLoading(true);
+                          callLLM(suggestion, (text) => {
+                            setMessages((prev) => {
+                              const next = [...prev];
+                              const idx = next.length - 1;
+                              if (next[idx]) next[idx] = { ...next[idx], content: text };
+                              return next;
+                            });
+                          }).then((response) => {
+                            setMessages((prev) => {
+                              const next = [...prev];
+                              const idx = next.length - 1;
+                              if (next[idx]) next[idx] = { role: 'assistant', content: response.text, isFallback: response.isFallback };
+                              return next;
+                            });
+                            setIsLoading(false);
+                          });
+                        }, 0);
+                      }}
+                      className="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-105"
+                      style={{
+                        background: 'rgba(189,245,22,0.08)',
+                        border: '1px solid rgba(189,245,22,0.15)',
+                        color: '#BDF516',
+                      }}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Input */}
               <div

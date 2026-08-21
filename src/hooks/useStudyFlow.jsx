@@ -7,6 +7,8 @@ import {
   calculateMomentum,
   promotePlannedTasks,
   syncFromServer,
+  switchProfile,
+  createNewProfile,
 } from '../utils/storage';
 
 export const useStudyFlow = () => {
@@ -59,7 +61,30 @@ export const useStudyFlow = () => {
 
   const registerUser = useCallback(async (userData) => {
     await saveUser(userData);
+    const updatedUser = getUser();
+    setUser(updatedUser);
+  }, []);
+
+  const switchActiveProfile = useCallback((profileId) => {
+    switchProfile(profileId);
+    const userData = getUser();
+    const entriesData = getEntries();
     setUser(userData);
+    setEntries(entriesData);
+    if (userData) {
+      const streakData = calculateStreak(entriesData);
+      setStreak(streakData);
+      setMomentum(calculateMomentum(streakData.current));
+    }
+    promotePlannedTasks();
+  }, []);
+
+  const clearActiveProfile = useCallback(() => {
+    createNewProfile();
+    setUser(null);
+    setEntries([]);
+    setStreak({ current: 0, longest: 0 });
+    setMomentum({ momentum: 0, color: '#EF4444' });
   }, []);
 
   return {
@@ -70,5 +95,7 @@ export const useStudyFlow = () => {
     isLoading,
     registerUser,
     refreshEntries,
+    switchActiveProfile,
+    clearActiveProfile,
   };
 };

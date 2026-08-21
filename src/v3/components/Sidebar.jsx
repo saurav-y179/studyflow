@@ -7,14 +7,17 @@ import {
   MessageCircle,
   ChevronLeft,
   ChevronRight,
+  Link2,
+  Keyboard,
 } from 'lucide-react';
 import { ActivePikachu } from './ActivePikachu';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'tasks', label: 'Tasks', icon: ListTodo },
-  { id: 'plan', label: 'Plan', icon: CalendarRange },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, shortcut: '1' },
+  { id: 'tasks', label: 'Tasks', icon: ListTodo, shortcut: '2' },
+  { id: 'plan', label: 'Plan', icon: CalendarRange, shortcut: '3' },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3, shortcut: '4' },
+  { id: 'connections', label: 'Connections', icon: Link2, shortcut: '5' },
 ];
 
 export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity, isMinimized, onToggleMinimize }) => {
@@ -54,7 +57,7 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
               <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
             </svg>
           </div>
-          {!isMinimized && <span className="text-[15px] font-bold text-white tracking-tight">StudyFlow</span>}
+          {!isMinimized && <span className="text-h3 font-bold text-white tracking-tight" style={{ fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif" }}>StudyFlow</span>}
         </div>
         <button 
           onClick={onToggleMinimize}
@@ -64,6 +67,13 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
         </button>
       </div>
 
+      {/* Section label */}
+      {!isMinimized && (
+        <div className="px-5 mb-1">
+          <span className="text-overline text-white/30" style={{ fontSize: '0.5625rem' }}>Navigation</span>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className={`flex-1 ${isMinimized ? 'px-1' : 'px-3'} mt-1`}>
         {NAV_ITEMS.map((item) => {
@@ -72,8 +82,8 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
             <motion.button
               key={item.id}
               onClick={() => onNavChange(item.id)}
-              whileHover={{ x: 2 }}
-              className={`w-full flex items-center ${isMinimized ? 'justify-center p-2' : 'gap-3 px-3 py-2.5'} rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${
+              whileHover={{ x: isMinimized ? 0 : 2 }}
+              className={`group w-full flex items-center ${isMinimized ? 'justify-center p-2' : 'gap-3 px-3 py-2.5'} rounded-xl text-body font-medium transition-all duration-200 mb-0.5 relative ${
                 isActive
                   ? 'text-white'
                   : 'text-white/70 hover:text-white'
@@ -96,8 +106,25 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
                 if (!isActive) e.currentTarget.style.background = 'transparent';
               }}
             >
+              {/* Active indicator bar */}
+              {isActive && !isMinimized && (
+                <motion.div
+                  layoutId="sidebar-active"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full"
+                  style={{ background: '#fff' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
               <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-              {!isMinimized && item.label}
+              {!isMinimized && (
+                <>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {/* Keyboard shortcut hint */}
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity text-micro font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded">
+                    {item.shortcut}
+                  </span>
+                </>
+              )}
             </motion.button>
           );
         })}
@@ -114,11 +141,11 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
             onClick={onPikachuClick}
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
-            className={`flex items-center justify-center ${isMinimized ? 'w-10 h-10 p-0 rounded-xl' : 'w-full max-w-[140px] gap-2 px-4 py-3 rounded-xl'} font-bold uppercase tracking-wider text-[11px] transition-all`}
+            className={`flex items-center justify-center ${isMinimized ? 'w-10 h-10 p-0 rounded-xl' : 'w-full max-w-[140px] gap-2 px-4 py-3 rounded-xl'} text-caption font-bold uppercase tracking-wider transition-all`}
             style={{
-              background: 'linear-gradient(135deg, #BDF516 0%, #64E986 100%)',
-              color: '#0a1a00',
-              boxShadow: '0 8px 24px rgba(189,245,22,0.5), inset 0 2px 0 rgba(255,255,255,0.4)',
+              background: 'linear-gradient(135deg, #22d3ee 0%, #0891b2 100%)',
+              color: '#001a20',
+              boxShadow: '0 8px 24px rgba(34,211,238,0.35), inset 0 2px 0 rgba(255,255,255,0.25)',
               border: 'none'
             }}
           >
@@ -126,6 +153,14 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
             {!isMinimized && "Ask Pikachu"}
           </motion.button>
         </div>
+
+        {/* Keyboard shortcuts hint */}
+        {!isMinimized && (
+          <div className="flex items-center justify-center gap-1.5 mt-3 opacity-40 hover:opacity-70 transition-opacity cursor-default">
+            <Keyboard className="w-3 h-3 text-white/50" />
+            <span className="text-overline text-white/50" style={{ fontSize: '0.5625rem' }}>Hover for shortcuts</span>
+          </div>
+        )}
       </div>
     </aside>
   );

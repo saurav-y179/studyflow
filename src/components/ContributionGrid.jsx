@@ -4,7 +4,7 @@ import { format, eachDayOfInterval, subWeeks, parseISO } from 'date-fns';
 import { Activity } from 'lucide-react';
 
 const INTENSITY_COLORS = [
-  '#1E2530', // Level 0 - no activity
+  'var(--card-alt)', // Level 0 - no activity
   '#164E45', // Level 1 - 1-30 min
   '#0B8A75', // Level 2 - 31-60 min
   '#1AB89B', // Level 3 - 61-120 min
@@ -79,14 +79,47 @@ export const ContributionGrid = ({ entries }) => {
     return result;
   }, [weeks]);
 
-  // Calculate Top Subjects (mocked logic based on tasks if we don't have explicit subjects, or just show placeholders as requested by prompt)
+  // Calculate Top Subjects from actual task data
   const topSubjects = useMemo(() => {
-    return [
-      { name: "Deep Work / Focus Session", percent: 85, color: "#2EE6D8" },
-      { name: "Reading / Research", percent: 60, color: "#FFB443" },
-      { name: "Planning & Strategy", percent: 35, color: "#4ADE80" },
-    ];
-  }, []);
+    const subjectCounts = {};
+    const totalCounts = {};
+    
+    entries.forEach(entry => {
+      (entry.todayTasks || []).forEach(task => {
+        const text = (task.text || '').toLowerCase();
+        let subject = 'Other';
+        if (text.includes('math') || text.includes('calculus') || text.includes('algebra')) subject = 'Math';
+        else if (text.includes('physics') || text.includes('chemistry') || text.includes('science')) subject = 'Science';
+        else if (text.includes('english') || text.includes('writing') || text.includes('essay') || text.includes('reading')) subject = 'English';
+        else if (text.includes('cs') || text.includes('code') || text.includes('programming') || text.includes('algorithm')) subject = 'CS';
+        else if (text.includes('history') || text.includes('geography')) subject = 'History';
+        else if (text.includes('revision') || text.includes('review')) subject = 'Revision';
+        else if (text.includes('focus') || text.includes('deep work') || text.includes('study')) subject = 'Focus Session';
+        
+        if (task.completed) {
+          subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
+        }
+        totalCounts[subject] = (totalCounts[subject] || 0) + 1;
+      });
+    });
+
+    const colors = ['#2EE6D8', '#FFB443', '#4ADE80', '#F87171', '#a78bfa', '#60a5fa'];
+    const subjects = Object.entries(totalCounts)
+      .map(([name, total], i) => ({
+        name,
+        percent: total > 0 ? Math.round(((subjectCounts[name] || 0) / total) * 100) : 0,
+        color: colors[i % colors.length],
+      }))
+      .sort((a, b) => b.percent - a.percent)
+      .slice(0, 4);
+
+    if (subjects.length === 0) {
+      return [
+        { name: 'Add tasks to see subjects', percent: 0, color: '#2EE6D8' },
+      ];
+    }
+    return subjects;
+  }, [entries]);
 
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -101,14 +134,14 @@ export const ContributionGrid = ({ entries }) => {
   };
 
   return (
-    <div className="bg-[#151A23]/70 backdrop-blur-[16px] border border-white/5 rounded-[20px] p-6 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-400">
+    <div className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[20px] p-6 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-[var(--card-border-10)] transition-all duration-400">
       <div className="flex items-center gap-2 mb-6">
         <Activity className="w-5 h-5 text-[#8B95A5]" />
-        <h2 className="text-[14px] font-semibold uppercase tracking-[0.05em] text-[#8B95A5]">
+        <h2 className="text-body font-semibold uppercase tracking-[0.05em] text-[#8B95A5]">
           Activity Heatmap
         </h2>
-        <div className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-white/5 cursor-help" title="Shows your daily focus time over the last year.">
-          <span className="text-[10px] text-[#8B95A5]">i</span>
+        <div className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[var(--input-bg)] cursor-help" title="Shows your daily focus time over the last year.">
+          <span className="text-micro text-[#8B95A5]">i</span>
         </div>
       </div>
 
@@ -122,7 +155,7 @@ export const ContributionGrid = ({ entries }) => {
               {dayLabels.map((day, i) => (
                 <div
                   key={day}
-                  className="text-[10px] text-[#5B6574] flex items-center"
+                  className="text-micro text-[#5B6574] flex items-center"
                   style={{ height: '14px', lineHeight: '14px' }}
                 >
                   {i % 2 === 1 ? day : ''}
@@ -132,15 +165,15 @@ export const ContributionGrid = ({ entries }) => {
 
             <div className="flex flex-col">
               {/* Month labels (X-axis) */}
-              <div className="flex gap-[3px] mb-1.5 h-[14px] relative">
+              <div className="flex gap-[3px] mb-1.5 h-[14px]">
                 {months.map((m, i) => {
                   const nextWeekIndex = months[i + 1]?.weekIndex || weeks.length;
                   const span = nextWeekIndex - m.weekIndex;
                   return (
                     <div
                       key={`${m.month}-${i}`}
-                      className="text-[10px] text-[#8B95A5] absolute"
-                      style={{ left: `${m.weekIndex * 17}px` }}
+                      className="text-micro text-[#8B95A5]"
+                      style={{ width: `${span * 17}px` }}
                     >
                       {span > 2 ? m.month : ''}
                     </div>
@@ -177,7 +210,7 @@ export const ContributionGrid = ({ entries }) => {
 
           {/* Legend */}
           <div className="flex items-center justify-end gap-1.5 mt-3">
-            <span className="text-[10px] text-[#5B6574] mr-1">Less</span>
+            <span className="text-micro text-[#5B6574] mr-1">Less</span>
             {INTENSITY_COLORS.map((color, i) => (
               <div
                 key={i}
@@ -185,13 +218,13 @@ export const ContributionGrid = ({ entries }) => {
                 style={{ backgroundColor: color }}
               />
             ))}
-            <span className="text-[10px] text-[#5B6574] ml-1">More</span>
+            <span className="text-micro text-[#5B6574] ml-1">More</span>
           </div>
         </div>
 
         {/* Top Subjects Section */}
         <div className="w-full lg:w-[250px] flex-shrink-0 flex flex-col justify-center">
-          <h3 className="text-[14px] font-semibold uppercase tracking-[0.05em] text-[#8B95A5] mb-4">
+          <h3 className="text-body font-semibold uppercase tracking-[0.05em] text-[#8B95A5] mb-4">
             Top Subjects
           </h3>
           <div className="flex flex-col gap-4">
@@ -201,7 +234,7 @@ export const ContributionGrid = ({ entries }) => {
                   <p className="text-[13px] font-medium text-[#E9EDF2] whitespace-normal break-words leading-tight" title={sub.name}>
                     {sub.name}
                   </p>
-                  <div className="w-full h-1.5 bg-[#1E2530] rounded-full mt-1.5 overflow-hidden">
+                  <div className="w-full h-1.5 bg-[var(--card-alt)] rounded-full mt-1.5 overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${sub.percent}%` }}
@@ -211,7 +244,7 @@ export const ContributionGrid = ({ entries }) => {
                     />
                   </div>
                 </div>
-                <div className="text-[12px] font-bold text-[#8B95A5] w-9 text-right tabular-nums">
+                <div className="text-caption font-bold text-[#8B95A5] w-9 text-right tabular-nums">
                   {sub.percent}%
                 </div>
               </div>
@@ -224,7 +257,7 @@ export const ContributionGrid = ({ entries }) => {
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="fixed bg-[#151A23]/90 backdrop-blur-md rounded-lg px-3 py-2 z-[60] pointer-events-none shadow-2xl border border-white/10"
+          className="fixed bg-[var(--card-bg-90)] backdrop-blur-md rounded-lg px-3 py-2 z-[60] pointer-events-none shadow-2xl border-[var(--card-border-10)]"
           style={{
             left: tooltip.x,
             top: tooltip.y - 48,

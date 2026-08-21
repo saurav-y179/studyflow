@@ -1,0 +1,1200 @@
+================================================================================
+  STUDYFLOW v3 — COMPLETE UI REFERENCE
+  Full architectural breakdown of every component, data flow, and design detail
+================================================================================
+
+Last updated: May 2026
+Source code location: C:\Users\vlodo\code\webapp\src
+
+
+TABLE OF CONTENTS
+───────────────────────────────────────────────────────────────────────────────
+  1.  PROJECT OVERVIEW
+  2.  ENTRY POINT & VERSION ROUTING (main.jsx)
+  3.  DATA LAYER (useStudyFlow hook + storage.js)
+  4.  APP SHELL (AppV3.jsx) — LAYOUT STRUCTURE
+  5.  COMPONENT-BY-COMPONENT BREAKDOWN
+      5.1  Sidebar
+      5.2  EnergyBar
+      5.3  VersionSwitcher
+      5.4  GreetingBanner
+      5.5  StatsRow & AnimatedCounter/Sparkline/TrendArrow
+      5.6  TodayTasksCard
+      5.7  TomorrowPlanCard
+      5.8  ActivityHeatmap
+      5.9  FocusTimer
+      5.10 ProductivityOverview
+      5.11 HistoryPanel
+      5.12 ConnectionsPanel
+      5.13 ChatPanel (Flow AI Pikachu)
+      5.14 ActivePikachu Mascot
+      5.15 Starfield (3D particles)
+  6.  SHARED / LEGACY COMPONENTS
+      6.1  RegistrationModal
+      6.2  SettingsModal
+      6.3  AuthModals
+      6.4  Dashboard
+      6.5  ContributionGrid
+      6.6  History
+      6.7  LLMAssistant (deprecated)
+  7.  DESIGN SYSTEM (index.css)
+      7.1  CSS Custom Properties
+      7.2  Glassmorphism Card System
+      7.3  Animation System
+      7.4  Typography Scale
+      7.5  Glow Effects
+      7.6  Interactive Utilities
+  8.  DATA FLOW DIAGRAM
+  9.  PERSISTENCE LAYER
+  10. EXTERNAL CONNECTIONS SYSTEM
+  11. LEGACY VERSION (AppV1.jsx)
+
+
+================================================================================
+1.  PROJECT OVERVIEW
+================================================================================
+
+StudyFlow is a habit-tracking / productivity dashboard application built with:
+
+  - React 19 (via Vite)
+  - Tailwind CSS v4
+  - Framer Motion (animation library)
+  - date-fns (date formatting)
+  - Three.js / @react-three/fiber (3D starfield background)
+  - Lucide React (icon library)
+  - GSAP + ScrollTrigger (legacy App.jsx hero animations)
+  - Express.js backend (file-based persistence, optional)
+
+The app displays a personal study dashboard where users can:
+  ✓ Register a profile (name, email, daily goal)
+  ✓ Add/manage daily tasks (with auto-duration estimation)
+  ✓ Plan tasks for tomorrow (with auto-tagging and time slots)
+  ✓ Track streaks and momentum
+  ✓ View an activity heatmap (year-long GitHub-style grid)
+  ✓ Use a Pomodoro-style focus timer (4 presets)
+  ✓ Chat with an AI assistant (Pikachu) — supports local/cloud/basic modes
+  ✓ Connect external accounts (GitHub, HuggingFace, Reddit, etc.)
+  ✓ Export all data as JSON
+  ✓ Switch between multiple user profiles
+  ✓ Switch app versions (v3 "Dashboard" / T2 "Editorial")
+
+
+================================================================================
+2.  ENTRY POINT & VERSION ROUTING
+================================================================================
+
+File: src/main.jsx
+
+  - React.StrictMode wrapper
+  - ErrorBoundary at top level
+  - Lazy-loaded app shells:
+      AppV3 (import('./v3/AppV3.jsx'))  — primary modern dashboard (default)
+      AppV1 (import('./AppV1.jsx'))     — legacy editorial/brutalist theme
+  - Version selection via localStorage key 'app_version'
+      Default: 'v3'
+      Fallback (if stored 'v1'): AppV1
+  - handleVersionChange saves choice + triggers re-render
+
+  MainApp component:
+    State: version (from localStorage)
+    Renders:
+      version === 'v3'  → <AppV3 />     // Modern dashboard
+      else              → <AppV1 />     // Editorial theme
+
+  Loading screen: spinner + "Loading StudyFlow..." text (used as Suspense fallback)
+
+
+================================================================================
+3.  DATA LAYER
+================================================================================
+
+3.1 useStudyFlow Hook (src/hooks/useStudyFlow.jsx)
+
+  The central data hook consumed by every component.
+
+  State:
+    user      — currently active profile object { id, name, email, dailyGoal }
+    entries   — array of day entries [{ date, todayTasks[], timestamp }]
+    streak    — { current: number, longest: number }
+    momentum  — { momentum: number (0-100), color: string }
+    isLoading — boolean
+
+  Actions:
+    refreshEntries()     — re-reads entries from storage, recalculates streak/momentum
+    registerUser(data)   — saves user to storage, updates state
+    switchActiveProfile(id) — switches to another profile, reloads all data
+    clearActiveProfile() — creates new blank profile, resets state to null
+
+  Initialization (on mount):
+    1. syncFromServer() — pulls data from Express API into localStorage
+    2. promotePlannedTasks() — runs day-rollover logic (promotes yesterday's tasks)
+    3. getUser() — reads active profile
+    4. Auto-creates default user ('User', '', goal: '4') if none exists
+    5. getEntries() — reads all entries for active profile
+    6. calculateStreak() + calculateMomentum() — derives streak/momentum
+
+3.2 Storage Layer (src/utils/storage.js) — 605 lines
+
+  Persistence:
+    - localStorage for fast local access
+    - Optional Express API server (file-based) for cross-device sync
+    - Server sync is background (fire-and-forget) unless explicit
+
+  Key namespacing:
+    studyflow_profiles       — array of all user profiles
+    studyflow_active_profile — ID of current active profile
+    studyflow_entries        — array of day entries (per-profile: studyflow_entries_{profileId})
+    studyflow_promoted       — promotion tracking (per-profile)
+    studyflow_connections    — external platform connections (per-profile)
+
+  Key Functions:
+    getUser() / saveUser()           — profile CRUD
+    getEntries() / saveEntry()        — entry CRUD (sorted by date)
+    getTodayEntry() / getTomorrowEntry() / getOrCreateTodayEntry()
+    createTask(text, date)            — task factory with unique ID
+    buildPlannedTask(task, date)      — marks task as 'planned' for promotion
+    promotePlannedTasks(date)         — moves yesterday's uncompleted tasks → today
+    canEditTask(task, currentDate)    — time-lock rules engine
+    calculateStreak(entries)          — returns { current, longest }
+    calculateMomentum(streak)         — returns { momentum, color }
+    getConnections() / saveConnection() / removeConnection()
+    fetchConnectionStats(connId)      — calls server proxy for live stats
+    refreshAllConnections()           — batch refresh with 30-min cooldown
+    exportData()                      — downloads all localStorage as JSON
+    syncFromServer()                  — initial pull from Express API
+    logout()                          — clears active session (keeps data)
+
+  Task Time-Lock Rules (canEditTask):
+    - task.date == today, created before today or source='planned'
+        → canEdit: false (locked), canToggle: true (can check/uncheck)
+    - task.date == today, created today
+        → canEdit: true, canToggle: true
+    - task.date == tomorrow
+        → canEdit: true, canToggle: false (cannot mark complete yet)
+    - task.date < today (history)
+        → canEdit: false, canToggle: false (fully locked)
+    - task.date > tomorrow
+        → canEdit: false, canToggle: false (not allowed)
+
+  Streak calculation:
+    - A day is "complete" if ≥ 80% of tasks are completed (COMPLETION_THRESHOLD = 0.8)
+    - Current streak: counts backwards from today/yesterday
+    - Longest streak: longest consecutive run in history
+
+
+================================================================================
+4.  APP SHELL (AppV3.jsx) — LAYOUT STRUCTURE
+================================================================================
+
+File: src/v3/AppV3.jsx — 361 lines
+
+  State:
+    activeNav          — current tab ('dashboard', 'tasks', 'plan', 'analytics', 'connections')
+    isSettingsOpen     — controls SettingsModal visibility
+    isChatOpen         — controls ChatPanel visibility
+    isSidebarMinimized — sidebar collapsed state (auto-minimizes on < 768px)
+    connections        — external platform connections array
+
+  Layout (rendered when user exists):
+
+    ┌────────────────────────────────────────────────────────────┐
+    │  Sidebar (fixed left, z-50)                                │
+    │    ├── Logo + Minimize toggle                              │
+    │    ├── Navigation (5 items with keyboard shortcuts)         │
+    │    ├── ActivePikachu mascot                                │
+    │    └── "Ask Pikachu" button (cyan gradient)                │
+    ├────────────────────────────────────────────────────────────┤
+    │  Main content area (marginLeft: sidebarWidth)              │
+    │    ├── EnergyBar                                           │
+    │    │   ├── 30-day streak progress bar                      │
+    │    │   ├── Streak counter + fire emoji                     │
+    │    │   ├── Settings gear, Export button                    │
+    │    │   ├── VersionSwitcher dropdown                        │
+    │    │   └── Avatar dropdown (settings + logout)             │
+    │    ├── GreetingBanner (time-aware + quick stats pills)     │
+    │    ├── StatsRow (4 stat cards + AI Pulse)                  │
+    │    └── Content area (animated crossfade per tab):          │
+    │                                                             │
+    │    DASHBOARD tab:                                           │
+    │      ┌─────────────────────┬──────────────────────┐        │
+    │      │  TodayTasksCard     │  FocusTimer           │        │
+    │      │  TomorrowPlanCard   │  ProductivityOverview │        │
+    │      │  ActivityHeatmap    │  HistoryPanel         │        │
+    │      └─────────────────────┴──────────────────────┘        │
+    │                                                             │
+    │    TASKS tab:                                               │
+    │      TodayTasksCard + TomorrowPlanCard (2-col) + FocusTimer │
+    │                                                             │
+    │    PLAN tab:                                                │
+    │      TomorrowPlanCard (wide) + FocusTimer + HistoryPanel    │
+    │                                                             │
+    │    ANALYTICS tab:                                           │
+    │      ProductivityOverview + ActivityHeatmap                 │
+    │                                                             │
+    │    CONNECTIONS tab:                                         │
+    │      ConnectionsPanel                                       │
+    │                                                             │
+    ├────────────────────────────────────────────────────────────┤
+    │  Status Strip (fixed bottom)                                │
+    │    Live indicator (ping dot) + "Active" + streak + %       │
+    └────────────────────────────────────────────────────────────┘
+
+    ChatPanel (floating, slides from left, green glass theme)
+    AuthModals (RegistrationModal / SettingsModal — fullscreen)
+
+
+================================================================================
+5.  COMPONENT-BY-COMPONENT BREAKDOWN
+================================================================================
+
+5.1 Sidebar (src/v3/components/Sidebar.jsx) — 167 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    activeNav         — current active nav ID
+    onNavChange       — callback when nav item clicked
+    onPikachuClick    — opens ChatPanel
+    recentActivity    — total completed tasks count (for Pikachu context)
+    isMinimized       — boolean for collapsed state
+    onToggleMinimize  — toggle collapse
+
+  Navigation Items:
+    { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard, shortcut: '1' }
+    { id: 'tasks',        label: 'Tasks',        icon: ListTodo,        shortcut: '2' }
+    { id: 'plan',         label: 'Plan',         icon: CalendarRange,   shortcut: '3' }
+    { id: 'analytics',    label: 'Analytics',    icon: BarChart3,       shortcut: '4' }
+    { id: 'connections',  label: 'Connections',  icon: Link2,           shortcut: '5' }
+
+  Styling:
+    - Width: 200px (expanded) / 48px (minimized), smooth transition
+    - Background: multi-stop blue gradient (rgba(0,2,255,0.82) → rgba(0,89,255,0.8))
+    - backdrop-filter: blur(24px) saturate(1.8)
+    - Box-shadow: 4px 0 24px rgba(0,2,255,0.15)
+    - Active nav item: white background at 15% opacity + white bar indicator (animated with framer-motion layoutId)
+    - Hover effect on non-active items via direct DOM manipulation (mouseEnter/mouseLeave)
+    - Keyboard shortcut hints appear on hover (opacity transition)
+
+  Minimized state:
+    - Only icons shown, no labels
+    - ChevronRight/ChevronLeft toggle button
+    - Pikachu area hidden in minimized state
+    - "Ask Pikachu" button shrinks to icon-only (10x10 rounded)
+    - Scrollbar hidden with .scrollbar-hide class
+
+5.2 EnergyBar (src/v3/components/EnergyBar.jsx) — 198 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    streak            — { current, longest }
+    onSettingsClick   — opens SettingsModal
+    onSwitchVersion   — for VersionSwitcher
+    currentVersion    — current app version ID
+    user              — active user profile
+    onLogout          — logout handler
+
+  Layout:
+    - Glass card with backdrop-blur, rounded-2xl, shadow
+    - Left: 30-day streak progress meter
+        Animated bar with gradient (teal → amber at high %, teal at mid, dark teal at low)
+        Glow box-shadow matching progress level
+        End dot on bar when progress > 5%
+        Milestone dots at 7/14/21/30 days with amber color when reached
+    - Right section (flex row, gap-4):
+        Streak badge: number + fire emoji (with animate-fire class when > 0)
+        Settings button (gear icon, hover effect)
+        Export button (download icon, exports all localStorage data as JSON file)
+        VersionSwitcher component
+        Avatar dropdown:
+          User initial in circle (or UserIcon fallback)
+          Click opens animated dropdown with:
+            User name + email
+            Settings button
+            Red Logout button (calls logout() + reload)
+
+  Streak progress meter:
+    - Goal: 30 days
+    - Animated on mount with framer-motion (initial width 0 → target width)
+    - Duration: 1.2s with ease [0.22, 1, 0.36, 1]
+
+5.3 VersionSwitcher (src/components/VersionSwitcher.jsx) — 76 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    onSwitchVersion   — callback with version ID
+    currentVersion    — current version ID
+
+  Versions (after cleanup):
+    { id: 'v3', label: 'T3', description: 'Dashboard' }
+    { id: 'v1', label: 'T2', description: 'Editorial' }
+
+  UI:
+    - Button showing current label + Layers icon + chevron
+    - Dropdown (AnimatePresence) with version cards:
+        Each shows label (bold monospace) + description (smaller, muted)
+        Active version highlighted with green (#10b981) background
+    - Click outside to close
+
+5.4 GreetingBanner (src/v3/components/GreetingBanner.jsx) — 118 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    user       — active user profile
+    entries    — all entries
+    streak     — { current, longest }
+
+  Time-of-day detection (getTimeOfDay):
+    5-11   → morning  ☀️ "Good Morning"  — "Early start — winners build momentum first thing."
+    12-16  → afternoon 🔥 "Good Afternoon" — "Peak focus hours — lock in and execute."
+    17-20  → evening  🌙 "Good Evening"  — "Wind-down mode — review your wins today."
+    21-4   → night    ⭐ "Late Night"    — "Night owl session — stay sharp and rest well after."
+
+  Layout:
+    - Left: greeting icon + "Good {time}, {userName}" (accent color name) + sub-message
+    - Right: staggered entrance pills (framer-motion):
+        1. Today's Progress: Target icon + completed/total + "today"
+           (teal background, shows completion count)
+        2. Streak Badge: fire emoji (animate-fire) + streak count + "streak"
+           (amber background, only shown when streak > 0)
+        3. Motivational Tip: Sparkles icon + random rotating tip from 8 phrases
+           (purple theme, hidden below xl breakpoint, max-w-[280px] truncate)
+
+  Motivational Tips (8 rotating):
+    "Small wins stack into massive breakthroughs."
+    "Consistency beats intensity every single time."
+    "Your future self is counting on today's effort."
+    "Focus is a superpower — protect it ruthlessly."
+    "The streak doesn't define you, but it reveals your discipline."
+    "Every task completed is proof that you can."
+    "Study like you mean it. Rest like you've earned it."
+    "Momentum is fragile. Feed it daily."
+
+5.5 StatsRow & AnimatedCounter (src/v3/components/StatsRow.jsx + AnimatedCounter.jsx)
+────────────────────────────────────────────────────────────────────────────────
+
+Files: StatsRow.jsx (251 lines), AnimatedCounter.jsx (162 lines)
+
+  Props (StatsRow):
+    entries   — all entries
+    streak    — { current, longest }
+
+  Grid: grid-cols-2 md:grid-cols-4 lg:grid-cols-5, gap-3
+
+  Card 1 — Active Days:
+    Icon: CalendarDays (teal)
+    Value: count of entries with any tasks
+    7-segment dot bar (filled according to active days, capped at 7)
+    7-day active/inactive sparkline
+    Weekly trend arrow vs last week
+
+  Card 2 — Streak:
+    Icon: Flame (amber)
+    Value: streak.current
+    10-segment dot bar (filled proportionally to streak/30)
+    Percentage badge (streak/30)
+    7-day completion percentage sparkline
+
+  Card 3 — Best:
+    Icon: Trophy (green)
+    Value: streak.longest
+    Animated progress bar (longest/30 with green gradient)
+    No sparkline, no badge
+
+  Card 4 — Completion:
+    Icon: Target (red)
+    Value: all-time completion rate (completeDays/activeDays × 100) + '%'
+    Sub-text: "X/Y days"
+    Mini donut chart (SVG with animated stroke-dashoffset)
+    7-day completion sparkline
+
+  Card 5 — AI Pulse:
+    No icon in CARD_ACCENTS — standalone card
+    Animated gradient top border (shimmer sweep: teal → purple → amber → teal)
+    Radio icon + "AI Pulse" label + animated ping dot
+    Dynamic insight text:
+      streak >= 7  → "Streak engine is hot"
+      streak >= 3  → "Momentum is forming"
+      completionRate >= 70 → "Consistency signal strong"
+      else         → "Prime the first win"
+    7-day sparkline + trend arrow
+    Weekly summary text: "X complete day(s) this week"
+
+  AnimatedCounter (reusable):
+    - requestAnimationFrame-based number roll-up
+    - Cubic ease-out deceleration
+    - Props: value, duration (default 1200ms), prefix, suffix, decimals, className, style
+    - Tabular-nums for consistent digit width
+
+  Sparkline (reusable):
+    - SVG mini line chart
+    - Gradient area fill below the line
+    - Optional animated draw (stroke-dasharray animation)
+    - End dot with glow drop-shadow
+    - Props: data[], width, height, color, animated
+
+  TrendArrow (reusable):
+    - ▲ green / ▼ red with percentage
+    - Hidden when value is 0 or undefined
+
+5.6 TodayTasksCard (src/v3/components/TodayTasksCard.jsx) — 299 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    onEntriesChange   — callback to refresh parent after changes
+
+  State:
+    entry         — today's entry (from getTodayEntry() / getOrCreateTodayEntry())
+    newTaskText   — controlled input for adding tasks
+
+  Header:
+    Teal dot with glow + "Today's Tasks" title
+    Mini progress ring (SVG, animated stroke-dashoffset) showing completed count
+    Date formatted: "EEEE, MMMM d, yyyy" (date-fns)
+
+  Progress Bar:
+    Shown when totalTasks > 0
+    "completed/total completed" label + percentage
+    Animated bar: teal gradient → green gradient at 100%
+    Green glow box-shadow at 100%
+
+  Task List (max-h-[280px] overflow-y-auto):
+    Separated into:
+      plannedTasks — tasks from yesterday's promotion (source='planned', locked but toggleable)
+      addedTodayTasks — tasks added today (fully editable)
+    Rendered in order: planned first, then added today
+    
+    Each task row:
+      Checkbox button (custom styled):
+        Unchecked: dark border, hover becomes teal + glow
+        Checked: teal fill + white checkmark + teal glow shadow
+      Colored dot (rotating through 5 subject colors)
+      Task text (strikethrough + muted when completed)
+      Duration badge (auto-estimated from text, e.g., "45m", "90m")
+      Delete button (appears on hover, only for editable tasks)
+      Lock icon with tooltip (for planned-yesterday tasks)
+
+  Empty State:
+    Floating clipboard icon (animate-float) + "Your day is clear ✨"
+    Quick-add suggestion chips: "Math practice", "Read chapter", "Review notes"
+    Clicking a chip sets the input value
+
+  Add Task Input:
+    Teal-focus input with glow ring on focus
+    Gradient teal submit button (Plus icon) — disabled when empty
+    Enter key submits
+    Auto-duration estimation from text keywords (revision=30m, practice=45m,
+      essay=60m, mock/test=90m, physics/chem=60m, calculus/math=45m)
+
+  Subject Colors (rotating):
+    0: #737fe3 (purple-ish)
+    1: #a78bfa (lavender)
+    2: #00ffb2 (green)
+    3: #ffc107 (amber)
+    4: #ff6b6b (red)
+
+5.7 TomorrowPlanCard (src/v3/components/TomorrowPlanCard.jsx) — 271 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    onEntriesChange   — callback to refresh parent
+
+  State:
+    entry         — tomorrow's entry (getTomorrowEntry())
+    newTaskText   — controlled input
+
+  Header:
+    Amber dot with glow + "Tomorrow's Plan"
+    Stats pills:
+      Estimated total time (sum of durations, e.g., "2h 15m")
+      Task count ("X tasks")
+    Date: "EEEE, MMMM d, yyyy" (tomorrow)
+
+  Tag Distribution Bar:
+    Colored horizontal bars showing proportion of each tag type
+    Animated width entrance
+
+  Task List (max-h-[280px]):
+    Each row:
+      Drag handle hint (GripVertical icon, visible on hover)
+      Time pill ("09:00 AM" - "04:00 PM", auto-assigned first available slot)
+      Colored vertical tag bar (2px wide, tag color)
+      Task text (truncated)
+      Duration pill (visible on hover only)
+      Tag badge (colored background + border + text)
+      Delete button (hover visible)
+
+  Tag System (6 types, auto-detected from text):
+    Focus    — teal (#2EE6D8)      — default
+    Study    — amber (#FFB443)     — chapter, read, learn
+    Practice — green (#4ADE80)     — exercise, problem
+    Test     — red (#F87171)       — mock, exam, quiz
+    Creative — purple (#A78BFA)    — write, essay, project, build
+    Review   — blue (#60A5FA)      — revise, recap
+
+  Empty State:
+    Calendar icon + "Plan ahead" + "What's your main goal for tomorrow?"
+    Quick suggestions: "Study session", "Practice problems", "Review notes"
+
+  Auto Time Assignment:
+    PLAN_TIMES = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+                  '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM']
+    First unused slot is assigned
+
+5.8 ActivityHeatmap (src/v3/components/ActivityHeatmap.jsx) — 335 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    entries   — all entries
+
+  GitHub-style contribution grid (1-year view)
+
+  Intensity Scale (6 levels):
+    0: #1E2530   — no activity
+    1: #2a3345   — very low (1-39%)
+    2: #3b4559   — low (40-59%)
+    3: #2EE6D8   — moderate (60-79%)
+    4: #5FFBEF   — high (80-99%)
+    5: #A8FEF5   — very high (100%)
+
+  Layout:
+    - Day labels on left (Mon, Wed, Fri — abbreviated)
+    - Month labels on top (only shown when span > 2 weeks)
+    - Grid of 11px × 11px rounded cells with 2px gap
+    - Hover scale: 1.6x with tooltip showing date + status text
+    - Legend: "Less" → 6 color swatches → "More"
+    - Tooltip: fixed-position card with arrow pointer, date + status
+
+  Streak Milestone Banner (calculated from current completion streak):
+    7 days  → 🔥 "1 Week Streak!" (amber)
+    14 days → ⚡ "2 Week Streak!" (purple)
+    21 days → 🚀 "3 Week Streak!" (blue)
+    30 days → 👑 "Monthly Streak!" (green)
+    Shows current streak days count
+
+  Top Subjects Panel (right side):
+    Extracts subject from task text before "–" or ":"
+    Splits by frequency, takes top 4
+    Each shows: name (truncated), colored progress bar (animated), percentage
+    Colors: teal, amber, green, red
+
+  Contribution count header: "X contributions this year"
+
+5.9 FocusTimer (src/v3/components/FocusTimer.jsx) — 276 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Presets:
+    Pomodoro   25/5 min  🍅
+    Deep Focus 50/10 min 🧠
+    Sprint     15/3 min  ⚡
+    Study Block 45/15 min 📚
+
+  State:
+    presetIdx   — selected preset index
+    mode        — 'work' | 'break'
+    timeLeft    — seconds remaining
+    isRunning   — timer active
+    sessions    — completed work sessions count
+
+  UI:
+    - Header: Brain icon + "Focus Timer" label + preset selector dropdown
+    - Preset selector: shows current icon + label, click to open dropdown list
+    - Timer Ring: 160px SVG circle with:
+        Background ring (dark)
+        Glow ring (thicker, blurred, behind progress)
+        Progress ring (animated with CSS transition on stroke-dashoffset)
+        Color: teal for work, amber for break
+    - Center display: MM:SS countdown + "Focus" (Brain icon) or "Break" (Coffee icon)
+    - Controls:
+        Reset button (RotateCcw icon, small circle)
+        Play/Pause button (bigger circle, gradient background matching mode color)
+        Sessions counter (small circle showing count)
+    - Session dots: up to 8 animated dots below timer with overflow "+X" label
+
+  Behavior:
+    - Auto-switches work → break → work when timer reaches 0
+    - Increments sessions counter on each work completion
+    - Clean 1-second interval with proper cleanup
+
+5.10 ProductivityOverview (src/v3/components/ProductivityOverview.jsx) — 240 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    entries   — all entries
+    streak    — { current, longest }
+
+  Header:
+    "Productivity" title + week completion donut chart (SVG, animated)
+    Donut shows percentage of completed tasks this week
+
+  Total Focus Time:
+    Large animated counters: Xh Ym
+    Calculated: total completed tasks × 45 minutes
+    Delta vs last week (green ▲ positive / red ▼ negative)
+
+  Bar Chart (7-day, Mon-Sun):
+    Stacked bars:
+      Completed segment (teal, full saturation)
+      Remaining segment (dark, #1E2530, only shown when incomplete tasks exist)
+    Today highlighted with teal label + dot below
+    Hover tooltip: "completed/total (percentage%)"
+    Daily average line (dashed amber line when avg > 0)
+    Bar height proportional to max value in week
+
+  Legend:
+    Completed (teal square) / Remaining (dark square) / Daily avg (amber dashed line)
+
+  Animations:
+    Bars animate from height 0 to target (staggered by 0.05s per day)
+    Donut chart animated stroke-dashoffset
+
+5.11 HistoryPanel (src/v3/components/HistoryPanel.jsx) — 180 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    entries   — all entries
+
+  Shows up to 6 entries by default, "All" button to show all
+
+  Timeline Layout:
+    Vertical line on left (amber, 1px)
+    Each entry:
+      Date group header (when date changes):
+        "Today" / "Yesterday" / "MMM d" with horizontal divider line
+      Timeline node: colored icon badge (22×22 rounded box)
+        Activity type determines icon + color:
+          ≥80% completion → CheckCircle2 (teal) — "X/Y tasks done"
+          ≥50% completion → Coffee (green)      — "X/Y completed"
+          <50% completion → BookOpen (amber)    — "X/Y tasks"
+      Activity info:
+        Label text (truncated)
+        Mini progress bar + percentage
+      Completion ring (SVG mini donut, 28×28)
+
+  Empty State:
+    Clock icon + "No history yet" + "Complete some tasks to see your activity"
+
+5.12 ConnectionsPanel (src/v3/components/ConnectionsPanel.jsx) — 478 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    connections       — array of connection objects
+    onSave            — save connection callback
+    onRemove          — remove connection callback
+    onRefreshStats    — refresh stats for a connection
+
+  Connection Modal:
+    Full-screen overlay with backdrop blur
+    Animated scale/fade entrance (framer-motion)
+    
+    Platform Selector (4-column grid, 8 platforms):
+      GitHub       — Code icon     — #6e40c9 — auto-fetch
+      Hugging Face — Bot icon      — #FFD21E — auto-fetch
+      Reddit       — Hash icon     — #FF4500 — auto-fetch
+      X/Twitter    — Hash icon     — #1DA1F2 — manual
+      YouTube      — Video icon    — #FF0000 — manual
+      Instagram    — Image icon    — #E4405F — manual
+      Spotify      — Music icon    — #1DB954 — manual
+      Custom       — Globe icon    — #60a5fa — manual
+
+    Form fields (change based on platform):
+      Display Name (required)
+      Username (for auto-fetch platforms) — with helpful hints per platform
+      Profile URL (optional) — platform-specific placeholder
+      API Key / Token (optional, password field) — stored locally
+    
+    Auto-detect username from URL if not provided
+    
+    Save/Cancel buttons
+
+  Connection Card:
+    Glass card with platform-colored accent
+    Header: platform icon (with glow), label, profile link or status indicator
+    Stats grid (for auto-fetch platforms):
+      3-4 stat values (e.g., GitHub: Followers, Repos, Stars, Forks)
+      Values shown with AnimatedCounter
+    Actions (visible on hover): Refresh, Edit, Delete
+    Loading state: spinner during refresh
+    Error state: yellow warning + message + username hint
+    Empty stats: "Fetch stats now" button
+    Last fetched timestamp: "Updated Xm ago / Xh ago / Xd ago"
+
+  Empty State (no connections):
+    Dashed border, Link2 icon, "No external connections yet."
+    "Connect GitHub, Hugging Face, or Reddit to auto-fetch your stats."
+    "Add Connection" button
+
+5.13 ChatPanel (src/v3/components/ChatPanel.jsx) — 670 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    isOpen           — visibility
+    onClose           — close handler
+    entries           — all entries (for AI context)
+    streak            — streak data
+    sidebarWidth      — for positioning (dynamic, respects sidebar collapse)
+    user              — for chat history key
+    connections       — external platforms stats (added to AI context)
+
+  Panel:
+    - Position: fixed, left side (--chat-left = sidebarWidth + 10px)
+    - Width: 384px (lg+), full width on mobile
+    - Height: 600px (lg+), responsive on mobile
+    - Background: green-tinted glass (rgba(189,245,22,0.12) gradient)
+    - backdrop-filter: blur(28px) saturate(1.6)
+    - Border: 1px solid rgba(189,245,22,0.18)
+    - Spring animation for show/hide
+    - transformOrigin: 'left bottom'
+
+  Two Views (animated crossfade with blur):
+
+  View 1 — Chat:
+    Header:
+      Sparkles icon (green gradient circle) or back arrow (in settings)
+      "Flow AI Pikachu" title + "Active" status
+      Settings gear button + Close (X) button
+    Messages (scrollable):
+      User messages: right-aligned, green gradient background
+      Assistant messages: left-aligned, glass background
+      Streaming indicator: 3 bouncing dots (green gradient, staggered delays)
+      Auto-scroll to bottom
+    Quick Suggestion Pills (shown on first load):
+      "How am I doing today?" / "Motivate me!" / "Analyze my streak" / "Study tips?"
+      Each chip triggers an AI call with the suggestion text
+    Input bar:
+      Glass input with green border (focus glow)
+      Green gradient Send button
+      Enter to send (no Shift required)
+      Disabled when empty or loading
+
+  View 2 — Settings:
+    Docs links: Web Guide + Notepad Guide
+    3 LLM Mode options (radio-style cards):
+      1. Local LLM Inference — custom host address input (default: http://localhost:8000)
+         "Runs entirely on your machine."
+      2. Cloud API (e.g. Groq) — API key input (password field, sessionStorage)
+         "Get a free API key from Groq for blazing fast responses."
+      3. Basic Responses — offline Mini-Brain mode
+         "Uses existing pre-written generic responses."
+    Auto-Fallback notice: if Local/Cloud fails, falls back to Basic
+    Clear Chat History button (red, with confirmation)
+
+  LLM Integration:
+    3 modes:
+      'local'  → POST to ${localHost}/v1/chat/completions (OpenAI-compatible, llama-3.2-1b)
+      'api'    → POST to https://api.groq.com/openai/v1/chat/completions (llama-3.3-70b-versatile)
+      'basic'  → Uses getMiniBrainResponse() — fully offline, 695-line rules engine
+    Streaming support (server-sent events, parsed line by line)
+    System prompt includes: current streak, today's completion %, recent 7 entries,
+      external connections stats
+    Fallback chain: if API fails → Mini-Brain response
+
+  Persistence:
+    Chat history saved to localStorage per user: flow_chat_{userId}
+    Settings persisted: flow_llmMode, flow_localHost (localStorage), flow_apiKey (sessionStorage)
+
+5.14 ActivePikachu Mascot (src/v3/components/ActivePikachu.jsx) — 266 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props:
+    recentActivity — total completed tasks count (used for context-aware reactions)
+
+  PNG Poses (4 images, preloaded on mount):
+    0: pikachu-transparent-32591.png — sitting
+    1: pikachu-transparent-32576.png — waving (initial greeting)
+    2: pikachu-transparent-32575.png — jumping (excited)
+    3: pikachu-transparent-32599.png — turning
+
+  Behavior:
+    - Initial: waves for 2.5 seconds → settles to sitting
+    - Auto-cycles every 10 seconds (pauses 30s after user interaction)
+    - Context-aware: jumps when recentActivity changes (new task completed)
+    - Click advances to next pose
+
+  Visual Effects:
+    Ambient glow: radial gradient (amber/yellow), pulsing with hover
+    Electric sparks: 4 floating particles (yellow + blue) with staggered animation
+    Image crossfade: AnimatePresence with scale + opacity transitions
+    Hover: brightness(1.1), scale(1.07), intensified glow
+    Drop shadow filter on image
+    Floor glow: radial ellipse at bottom
+
+  GlossyShine (sub-component):
+    Premium sticker-shine cursor tracking effect
+    3 gradient layers:
+      1. Tight specular hot-spot (white, 26px radius)
+      2. Wide soft bloom halo (white, 72px radius)
+      3. Warm Fresnel rim glow (amber, opposite side of cursor)
+    Direct DOM writes for position updates — bypasses React state entirely
+      No re-render, no lag, GPU-composited every frame
+    Fades in/out with CSS opacity transition
+
+5.15 Starfield (src/v3/components/Starfield.jsx) — 76 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  3D particle system using @react-three/fiber + @react-three/drei
+
+  Particles: 600 points, spread across 25 units
+  Colors (random from palette): #4455da, #2EE6D8, #60a5fa, #a78bfa, #818cf8
+  Rotation: slow y-axis (0.015) + x-axis (0.005) per frame
+  PointMaterial: size 0.06, AdditiveBlending, vertexColors, transparent
+  Reduced motion: disables rotation, reduces opacity/size, keeps static render
+  Seeded RNG for deterministic positions/colors
+
+
+================================================================================
+6.  SHARED / LEGACY COMPONENTS
+================================================================================
+
+6.1 RegistrationModal (src/components/RegistrationModal.jsx) — 114 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props: onRegister(userData)
+
+  Shown when no user is logged in (full-screen overlay)
+  Glass-strong background with ambient teal + amber glow circles
+  Spring-animated entrance (scale + fade + y)
+  
+  Form fields:
+    Name (text, required) — placeholder: "Enter your name"
+    Email (email, optional) — placeholder: "your@email.com"
+    Daily Goal (select) — 2/3/4/5/6/8 hours (default: 4)
+
+  Submit button: teal gradient "Get Started" with ArrowRight icon (hover animation)
+
+6.2 SettingsModal (src/components/SettingsModal.jsx) — 282 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props: user, onSave, onClose, onSwitchProfile, onCreateNewProfile
+
+  Full-screen overlay (rgba(2, 6, 18, 0.92)) with backdrop blur
+  Spring-animated dialog (sky-blue tinted glass, scale + blur entrance)
+  Close on Escape key or click outside
+
+  Form fields (same as registration):
+    Name, Email, Daily Goal (select)
+
+  Save button: sky-blue gradient "Save Changes" with hover shadow
+
+  Profile Switcher Section:
+    Lists all profiles from getProfiles()
+    Current active profile highlighted with blue border + "Active" badge
+    Click switches to that profile (calls onSwitchProfile)
+    "Create New Profile" button (dashed border, hover effect)
+
+6.3 AuthModals (src/components/layout/AuthModals.jsx) — 21 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Simple wrapper that renders:
+    RegistrationModal (when no user)
+    SettingsModal (when user exists + isSettingsOpen)
+
+6.4 Dashboard (src/components/Dashboard.jsx) — 164 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props: entries, streak, dailyGoal
+
+  Legacy component used in AppV1's dashboard tab.
+
+  Top 4 Stats Cards (grid-cols-2 md:grid-cols-4):
+    Active Days     — Target icon (teal)
+    Current Streak  — TrendingUp icon (amber)
+    Longest Streak  — AwardIcon (green, custom SVG)
+    Completion %    — Clock icon (red)
+
+  Productivity Overview:
+    SVG donut chart (120px, animated, teal) showing progress toward daily goal
+    Total focus time this week: "Xh Ym" (calculated as completed_tasks × 45min)
+    Weekly change badge: green ▲ or red ▼ with percentage
+    AI Insight Coach card: left gradient bar (teal→amber), lightning icon
+      Dynamic insight text based on weekly change direction
+
+6.5 ContributionGrid (src/components/ContributionGrid.jsx) — 277 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props: entries
+
+  Legacy heatmap (used in AppV1). Similar to ActivityHeatmap v3 but:
+    - 5 intensity levels (teal-based, vs 6 levels in v3)
+    - Focus minutes calculated as completed_tasks × 45min
+    - Sunday-Saturday week layout (vs Monday-Sunday in v3)
+    - Days of week: Sun, Mon, Tue, Wed, Thu, Fri, Sat (abbreviated, every other)
+    - Larger cells: 14×14px with 3px gap
+    - Hover tooltip shows "X mins focused"
+    - Top Subjects section with keyword-based classification:
+        Math, Science, English, CS, History, Revision, Focus Session, Other
+      Shows completion percentage per subject
+
+6.6 History (src/components/History.jsx) — 81 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Props: entries
+
+  Legacy timeline (used in AppV1). Shows last 7 entries with completed tasks.
+  
+  Timeline:
+    Vertical gradient line (teal → transparent)
+    Dots with alternating colors (#2EE6D8, #FFB443, #4ADE80)
+    Date: "EEEE" + "MMM d"
+    Entry: CheckCircle2 icon + "Completed: {first task text}"
+    "+ X more tasks" subtext when multiple completed
+
+6.7 LLMAssistant (src/components/LLMAssistant.jsx) — 234 lines
+────────────────────────────────────────────────────────────────────────────────
+
+  Deprecated — use ChatPanel instead.
+  
+  Preserved for backward compatibility with T1/T2 layouts.
+
+  Two variants:
+    Inline (full card, 500px height) — embedded in layout
+    Floating (FAB modal) — used by AppV1 chat button
+
+  Both use a simple local LLM API (http://localhost:8000/api/chat) with fallback
+  Minimal UI: message bubbles, textarea input, send button
+
+
+================================================================================
+7.  DESIGN SYSTEM (index.css — 849 lines)
+================================================================================
+
+7.1 CSS Custom Properties (52 variables)
+
+  Surface palette:
+    --sf-bg-deep:       #030712       — deepest background
+    --sf-bg:            #040814       — main background
+    --sf-bg-elevated:   #0B0E14       — elevated surfaces
+    --sf-surface:       #111827       — card surfaces
+    --sf-surface-2:     #1E2530       — secondary surfaces
+    --sf-surface-3:     #2A3240       — tertiary surfaces
+
+  Card system:
+    --card-bg:          rgba(17,24,39,0.65)   — glass card background
+    --card-bg-solid:    #111827               — solid card
+    --card-bg-80/90/95: higher opacities
+    --card-alt:         #1E2530               — alternate card
+    --card-surface:     #0B0E14               — card base
+    --card-border:      rgba(255,255,255,0.06) — subtle border
+    --card-border-10:   rgba(255,255,255,0.10) — more visible border
+    --card-border-hover: rgba(255,255,255,0.12)
+
+  Input system:
+    --input-bg:         rgba(255,255,255,0.04)
+    --input-bg-10:      rgba(255,255,255,0.08)
+    --input-border:     rgba(255,255,255,0.08)
+    --input-focus:      rgba(46,230,216,0.3)
+
+  Text hierarchy (6 levels):
+    --text-primary:     #F1F5F9       — primary text
+    --text-bright:      #E9EDF2       — bright/headings
+    --text-secondary:   #8B95A5       — secondary text
+    --text-muted:       #5B6574       — muted text
+    --text-muted2:      #3B4554       — very muted
+    --text-dim:         rgba(255,255,255,0.3)
+
+  Accent palette:
+    --accent:           #2EE6D8       — primary teal
+    --accent-bright:    #5FFBEF       — bright teal
+    --accent-dim:       #1CC9B8       — dim teal
+    --accent-alt:       #FFB443       — amber accent
+    --accent-alt-bright: #FFD080     — bright amber
+    --accent-green:     #4ADE80       — green
+    --accent-red:       #F87171       — red
+    --accent-purple:    #A78BFA       — purple
+    --accent-blue:      #60A5FA       — blue
+
+4  Animation System (16 keyframes + 16 utility classes)
+
+  Keyframes:
+    counter-roll     — translateY(100%)→0 for number roll-ups
+    slide-up         — translateY(12px)→0 for entrance
+    slide-in-left    — translateX(-16px)→0 for sidebar entrances
+    fade-scale       — scale(0.92)→1 for modal entrances
+    shimmer-sweep    — background-position -200%→200% for loading/shimmer
+    glow-pulse       — opacity 0.4→0.8 with scale for ambient glow
+    breathe          — box-shadow pulsing for active elements
+    confetti-pop     — scale + rotate for celebrations
+    gradient-rotate  — 0→360deg for animated borders
+    float            — translateY 0→-6 for floating elements
+    pulse-dot        — scale + opacity for live indicators
+    ring-fill        — stroke-dashoffset animation for progress rings
+    sparkline-draw   — stroke-dashoffset 200→0 for SVG sparklines
+    shake            — translateX oscillation for errors
+    tick-up          — translateY 0→-100% for number tickers
+    fire-flicker     — scaleY + brightness for fire emoji
+    bob              — translateY + rotate for mascot
+
+  Animation Utility Classes:
+    .animate-slide-up / .animate-slide-in-left / .animate-fade-scale
+    .animate-shimmer / .animate-glow-pulse / .animate-breathe
+    .animate-float / .animate-pulse-glow / .animate-fire / .animate-bob
+    .stagger-children — staggered entrance for up to 8 children
+
+  Reduced Motion: respects prefers-reduced-motion (disables all animations)
+
+7.5 Glow Effects
+
+    .glow-teal     — 0 0 24px rgba(46,230,216,0.2) + 60px spread
+    .glow-amber    — 0 0 24px rgba(255,180,67,0.2) + 60px spread
+    .glow-green    — 0 0 24px rgba(74,222,128,0.2) + 60px spread
+    .glow-red      — 0 0 24px rgba(248,113,113,0.2) + 60px spread
+    .glow-purple   — 0 0 24px rgba(167,139,250,0.2) + 60px spread
+    Legacy: .glow-primary / .glow-secondary / .glow-accent / .glow-warning
+
+7.6 Interactive Utilities
+
+    .hover-lift — translateY(-2px) + shadow-lg on hover
+    .btn-primary — teal gradient, shadow, hover lift
+    .btn-ghost — transparent, border, hover fill
+    .tag — inline-flex pill for metadata
+    .kbd — keyboard shortcut display
+    .skeleton / .skeleton-text / .skeleton-circle — shimmer loading skeletons
+    .celebration-burst — confetti pseudo-elements
+    .focus-ring / .focus-ring-secondary — accessible focus outlines
+    .priority-urgent / .priority-normal / .priority-low — task priority indicators
+    .priority-dot — 6px colored dot with glow
+
+
+================================================================================
+8.  DATA FLOW DIAGRAM
+================================================================================
+
+  localStorage (profiles, entries, connections, promoted)
+       │
+       ├── syncFromServer()  ──>  Express API /api/*
+       │                              │
+       │   ┌──────────────────────────┘
+       ▼   ▼
+  useStudyFlow hook
+  (src/hooks/useStudyFlow.jsx)
+       │
+       ├── user ──────────────────> AuthModals, EnergyBar, GreetingBanner,
+       │                              ChatPanel, SettingsModal
+       │
+       ├── entries ───────────────> StatsRow, TodayTasksCard, TomorrowPlanCard,
+       │                              ActivityHeatmap, ProductivityOverview,
+       │                              HistoryPanel, ChatPanel, ContributionGrid,
+       │                              Dashboard, History
+       │
+       ├── streak ────────────────> EnergyBar, StatsRow, GreetingBanner,
+       │                              ProductivityOverview, Dashboard, ChatPanel
+       │
+       ├── momentum ──────────────> Status strip (bottom bar)
+       │
+       ├── refreshEntries ────────> TodayTasksCard (on task add/toggle/delete)
+       │                              TomorrowPlanCard (on task add/delete)
+       │
+       ├── registerUser ──────────> saveUser() ──> localStorage + sync to server
+       │
+       ├── switchActiveProfile ───> switchProfile() ──> reload all data
+       │
+       └── clearActiveProfile ────> createNewProfile() ──> reset state to null
+
+  Component state changes:
+    TodayTasksCard: handleAddTask() → saveEntry() → onEntriesChange()
+    TomorrowPlanCard: handleAddTask() → saveEntry() → onEntriesChange()
+    ConnectionsPanel: onSave() → saveConnection() → refresh list
+    ChatPanel: callLLM() → stream response → setMessages()
+    FocusTimer: interval updates timeLeft → auto-switch work/break
+
+
+================================================================================
+9.  PERSISTENCE LAYER
+================================================================================
+
+  localStorage Keys:
+    studyflow_profiles              — Array<{ id, name, email, dailyGoal }>
+    studyflow_active_profile        — string (current profile ID)
+    studyflow_entries[_profileId]   — Array<{ date, todayTasks[], timestamp }>
+    studyflow_promoted[_profileId]  — Array<string> (dates already promoted)
+    studyflow_connections[_profileId] — Array<connection objects>
+    app_version                     — 'v3' | 'v1'
+    flow_llmMode                    — 'local' | 'api' | 'basic'
+    flow_localHost                  — string (LLM endpoint)
+    flow_chat_{userId}              — Array<{ role, content, isFallback }>
+
+  sessionStorage Keys:
+    flow_apiKey                     — string (cleared when browser closes)
+
+  Express API Endpoints (optional server):
+    GET  /api/health
+    GET  /api/profiles
+    GET  /api/active
+    GET  /api/entries/:profileId
+    GET  /api/promoted/:profileId
+    POST /api/profiles
+    POST /api/active
+    POST /api/entries/:profileId
+    POST /api/promoted/:profileId
+    POST /api/connections/:profileId/:connectionId/refresh
+
+  Backup/Export:
+    Exports all localStorage keys prefixed with studyflow_, flow_, app_version
+    Downloaded as JSON file named studyflow-backup-YYYY-MM-DD.json
+
+
+================================================================================
+10. EXTERNAL CONNECTIONS SYSTEM
+================================================================================
+
+  Supported Platforms (8):
+    Platform     | Auto-fetch | Color     | Stats Displayed
+    ─────────────|────────────|──────────|────────────────────────────────
+    GitHub       | Yes        | #6e40c9  | Followers, Repos, Stars, Forks
+    Hugging Face | Yes        | #FFD21E  | Models, Downloads, Likes
+    Reddit       | Yes        | #FF4500  | Link Karma, Comment Karma, Total
+    X / Twitter  | No         | #1DA1F2  | —
+    YouTube      | No         | #FF0000  | —
+    Instagram    | No         | #E4405F  | —
+    Spotify      | No         | #1DB954  | —
+    Custom       | No         | #60a5fa  | —
+
+  Auto-fetch platforms hit the server-side proxy at:
+    POST /api/connections/{profileId}/{connectionId}/refresh
+  Which fetches live stats from the platform's public API
+
+  Refresh cooldown: 30 minutes (refreshAllConnections)
+  Each connection stores: platform, label, meta (url, username), credentials (apiKey),
+    stats, lastFetched, fetchError
+  Stats displayed with AnimatedCounter for smooth number transitions
+
+
+================================================================================
+11. LEGACY VERSION (AppV1.jsx — 531 lines)
+================================================================================
+
+  File: src/AppV1.jsx
+  Theme: Brutalist / zine aesthetic
+
+  Key Design Elements:
+    - Black (#000) or white (#fff) background toggle
+    - Electric blue accent (#0033FF)
+    - Uppercase monospace font throughout
+    - Heavy borders (1px solid, all elements have borders)
+    - Noise canvas overlay (dither texture, mix-blend-mode: difference)
+    - Dark overlay (#041C1C with difference blend mode → inverts white to dark)
+    - Warm amber radial gradient glow
+
+  Layout:
+    - 12-column grid header with nav tabs
+    - Cover/hero section with name, issue date, streak stats
+    - Tab-based content (dashboard, tasks, plan, analytics, tetris)
+    - TetrisGame component on all non-tetris tabs (sidebar)
+    - Floating chat button (bottom-right, pulse animation)
+    - Chat panel (LLMAssistant in floating mode)
+
+  Theme System:
+    - Dark mode: black bg, white text, teal-blue accents
+    - "Blue" (light) mode: white bg, blue text, blue accents
+    - CSS variable overrides in .theme-light class
+    - Toggle switch in header
+
+  Animation:
+    - Framer Motion page transitions
+    - CSS keyframes for pulse-blue
+    - Noise canvas with requestAnimationFrame
+
+  Components used (shared with v3):
+    DailySubmission, ContributionGrid, Dashboard, History, LLMAssistant, TetrisGame
+
+================================================================================
+END OF DOCUMENT
+================================================================================

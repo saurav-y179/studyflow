@@ -8,11 +8,10 @@ export const VersionSwitcher = ({ onSwitchVersion, currentVersion }) => {
 
   const versions = [
     { id: 'v3', label: 'T3', description: 'Dashboard' },
-    { id: 'app', label: 'T1', description: 'Video Background' },
     { id: 'v1', label: 'T2', description: 'Editorial' },
   ];
 
-  const currentLabel = versions.find(v => v.id === currentVersion)?.label || 'T1';
+  const currentLabel = versions.find(v => v.id === currentVersion)?.label || 'T3';
 
   useEffect(() => {
     const handleClickOutside = (e) => {

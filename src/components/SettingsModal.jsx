@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, Save, X, Plus, Users } from 'lucide-react';
-import { getProfiles, switchProfile, createNewProfile } from '../utils/storage';
+import { getProfiles } from '../utils/storage';
 
-export const SettingsModal = ({ user, onSave, onClose }) => {
+export const SettingsModal = ({ user, onSave, onClose, onSwitchProfile, onCreateNewProfile }) => {
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [goal, setGoal] = useState(user?.dailyGoal || '4');
@@ -27,13 +27,13 @@ export const SettingsModal = ({ user, onSave, onClose }) => {
   };
 
   const handleSwitchProfile = (profileId) => {
-    switchProfile(profileId);
-    window.location.reload();
+    onSwitchProfile?.(profileId);
+    onClose?.();
   };
 
   const handleCreateNewProfile = () => {
-    createNewProfile();
-    window.location.reload();
+    onCreateNewProfile?.();
+    onClose?.();
   };
 
   return (
@@ -101,10 +101,11 @@ export const SettingsModal = ({ user, onSave, onClose }) => {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#bae6fd' }}>
+              <label htmlFor="settings-name" className="block text-sm font-medium mb-2" style={{ color: '#bae6fd' }}>
                 Your Name
               </label>
               <input
+                id="settings-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -128,10 +129,11 @@ export const SettingsModal = ({ user, onSave, onClose }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#bae6fd' }}>
+              <label htmlFor="settings-email" className="block text-sm font-medium mb-2" style={{ color: '#bae6fd' }}>
                 Email <span style={{ color: '#64748b' }}>(optional)</span>
               </label>
               <input
+                id="settings-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -154,10 +156,11 @@ export const SettingsModal = ({ user, onSave, onClose }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#bae6fd' }}>
+              <label htmlFor="settings-goal" className="block text-sm font-medium mb-2" style={{ color: '#bae6fd' }}>
                 Daily Study Goal
               </label>
               <select
+                id="settings-goal"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 outline-none"

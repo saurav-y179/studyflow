@@ -4,6 +4,7 @@ import { Plus, Check, Lock, X, Pencil, Calendar, ClipboardList } from 'lucide-re
 import { format } from 'date-fns';
 import {
   getTodayEntry,
+  getOrCreateTodayEntry,
   getTomorrowEntry,
   saveEntry,
   getToday,
@@ -13,7 +14,7 @@ import {
 } from '../utils/storage';
 
 export const DailySubmission = ({ onEntriesChange }) => {
-  const [todayEntry, setTodayEntry] = useState(() => getTodayEntry());
+  const [todayEntry, setTodayEntry] = useState(() => getTodayEntry() || getOrCreateTodayEntry());
   const [tomorrowEntry, setTomorrowEntry] = useState(() => getTomorrowEntry());
   const [newTaskText, setNewTaskText] = useState('');
   const [newTomorrowTask, setNewTomorrowTask] = useState('');
@@ -43,7 +44,7 @@ export const DailySubmission = ({ onEntriesChange }) => {
       return;
     }
     const task = createTask(taskText, currentDate);
-    const entry = getTodayEntry();
+    const entry = getOrCreateTodayEntry();
     updateToday({ ...entry, todayTasks: [...(entry.todayTasks || []), task] });
     setNewTaskText('');
   }, [currentDate, tomorrowDate, updateToday, updateTomorrow]);
@@ -88,16 +89,16 @@ export const DailySubmission = ({ onEntriesChange }) => {
   return (
     <>
       {/* TODAY CARD */}
-      <div className="bg-[#151A23]/70 backdrop-blur-[16px] border border-white/5 rounded-[20px] p-5 flex flex-col hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-400">
+      <div className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[20px] p-5 flex flex-col hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-[var(--card-border-10)] transition-all duration-400">
         
         {/* Header */}
         <div className="flex items-center gap-2 mb-1">
-          <Calendar className="w-4 h-4 text-[#8B95A5]" />
-          <h2 className="text-[14px] font-semibold uppercase tracking-[0.05em] text-[#8B95A5]">
+          <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
+          <h2 className="text-body font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
             Today's Tasks
           </h2>
         </div>
-        <p className="text-[13px] text-[#5B6574] mb-5">
+        <p className="text-[13px] text-[var(--text-muted2)] mb-5">
           {format(new Date(), 'EEEE, MMMM d, yyyy')}
         </p>
 
@@ -120,10 +121,15 @@ export const DailySubmission = ({ onEntriesChange }) => {
           </AnimatePresence>
 
           {todayTasks.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center py-6 opacity-80">
-              <ClipboardList className="w-12 h-12 text-[#2EE6D8]/40 mb-3" />
-              <p className="text-[15px] font-medium text-[#E9EDF2]">Your day is wide open ✨</p>
-              <p className="text-[13px] text-[#5B6574]">Add your first focus task below.</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+              <div className="relative w-14 h-14 mb-4">
+                <div className="absolute inset-0 rounded-2xl" style={{ background: 'var(--accent-dim-bg)', boxShadow: 'var(--accent-dim-shadow)' }} />
+                <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center">
+                  <ClipboardList className="w-7 h-7" style={{ color: 'var(--accent-dim-color)' }} />
+                </div>
+              </div>
+              <p className="text-h3 font-semibold text-[var(--text-bright)]">Your day is wide open ✨</p>
+              <p className="text-caption text-[var(--text-muted2)] mt-1.5">Add your first focus task below.</p>
             </div>
           )}
         </div>
@@ -135,12 +141,12 @@ export const DailySubmission = ({ onEntriesChange }) => {
             onChange={(e) => setNewTaskText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTask(newTaskText)}
             placeholder="Add a new task... (e.g., Study calculus for 2h)"
-            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-[15px] text-[#E9EDF2] placeholder:text-[#5B6574] focus:outline-none focus:border-[#2EE6D8] focus:shadow-[0_0_0_3px_rgba(46,230,216,0.15)] transition-all"
+            className="w-full bg-[var(--input-bg)] border-[var(--card-border-10)] rounded-xl py-3 pl-4 pr-12 text-h3 text-[var(--text-bright)] placeholder:text-[var(--text-muted2)] focus:outline-none focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-shadow)] transition-all"
           />
           <button
             onClick={() => handleAddTask(newTaskText)}
             disabled={!newTaskText.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#2EE6D8]/10 text-[#2EE6D8] flex items-center justify-center hover:bg-[#2EE6D8] hover:text-[#0B0E14] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center hover:bg-[var(--accent)] hover:text-[var(--card-surface)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -148,16 +154,16 @@ export const DailySubmission = ({ onEntriesChange }) => {
       </div>
 
       {/* TOMORROW CARD */}
-      <div className="bg-[#151A23]/70 backdrop-blur-[16px] border border-white/5 rounded-[20px] p-5 flex flex-col hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-400">
+      <div className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[20px] p-5 flex flex-col hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-[var(--card-border-10)] transition-all duration-400">
         
         {/* Header */}
         <div className="flex items-center gap-2 mb-1">
-          <Calendar className="w-4 h-4 text-[#8B95A5]" />
-          <h2 className="text-[14px] font-semibold uppercase tracking-[0.05em] text-[#8B95A5]">
+          <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
+          <h2 className="text-body font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)]">
             Tomorrow's Plan
           </h2>
         </div>
-        <p className="text-[13px] text-[#5B6574] mb-5">
+        <p className="text-[13px] text-[var(--text-muted2)] mb-5">
           {format(new Date(tomorrowDate), 'EEEE, MMMM d, yyyy')}
         </p>
 
@@ -177,10 +183,15 @@ export const DailySubmission = ({ onEntriesChange }) => {
           </AnimatePresence>
 
           {tomorrowTasks.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center py-6 opacity-80">
-              <ClipboardList className="w-12 h-12 text-[#FFB443]/40 mb-3" />
-              <p className="text-[15px] font-medium text-[#E9EDF2]">Plan ahead ✨</p>
-              <p className="text-[13px] text-[#5B6574]">What's your main goal for tomorrow?</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+              <div className="relative w-14 h-14 mb-4">
+                <div className="absolute inset-0 rounded-2xl" style={{ background: 'var(--accent-alt-dim-bg)', boxShadow: 'var(--accent-alt-dim-shadow)' }} />
+                <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center">
+                  <ClipboardList className="w-7 h-7" style={{ color: 'var(--accent-alt-dim-color)' }} />
+                </div>
+              </div>
+              <p className="text-h3 font-semibold text-[var(--text-bright)]">Plan ahead ✨</p>
+              <p className="text-caption text-[var(--text-muted2)] mt-1.5">What's your main goal for tomorrow?</p>
             </div>
           )}
         </div>
@@ -192,12 +203,12 @@ export const DailySubmission = ({ onEntriesChange }) => {
             onChange={(e) => setNewTomorrowTask(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTask(newTomorrowTask, true)}
             placeholder="Plan a task for tomorrow..."
-            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-[15px] text-[#E9EDF2] placeholder:text-[#5B6574] focus:outline-none focus:border-[#2EE6D8] focus:shadow-[0_0_0_3px_rgba(46,230,216,0.15)] transition-all"
+            className="w-full bg-[var(--input-bg)] border-[var(--card-border-10)] rounded-xl py-3 pl-4 pr-12 text-h3 text-[var(--text-bright)] placeholder:text-[var(--text-muted2)] focus:outline-none focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-shadow)] transition-all"
           />
           <button
             onClick={() => handleAddTask(newTomorrowTask, true)}
             disabled={!newTomorrowTask.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#FFB443]/10 text-[#FFB443] flex items-center justify-center hover:bg-[#FFB443] hover:text-[#0B0E14] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[var(--accent-alt)]/10 text-[var(--accent-alt)] flex items-center justify-center hover:bg-[var(--accent-alt)] hover:text-[var(--card-surface)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -239,7 +250,7 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
       }}
       exit={{ opacity: 0, height: 0, scale: 0.9 }}
       whileHover={!locked ? { y: -1, backgroundColor: 'rgba(255,255,255,0.06)' } : {}}
-      className={`group flex items-center gap-3 px-4 py-3 rounded-[14px] bg-white/5 border border-white/5 transition-all duration-300 ${
+      className={`group flex items-center gap-3 px-4 py-3 rounded-[14px] bg-[var(--input-bg)] border-[var(--card-border)] transition-all duration-300 ${
         locked ? 'opacity-60' : ''
       }`}
     >
@@ -249,11 +260,11 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
           onClick={() => onToggle?.(task)}
           className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
             task.completed
-              ? 'bg-[#4ADE80] border-[#4ADE80] scale-110'
-              : 'border-2 border-[#5B6574] hover:border-[#2EE6D8]'
+              ? 'bg-[var(--accent-alt-2)] border-[var(--accent-alt-2)] scale-110'
+              : 'border-2 border-[var(--text-muted2)] hover:border-[var(--accent)]'
           }`}
         >
-          {task.completed && <Check className="w-3.5 h-3.5 text-[#0B0E14] stroke-[3]" />}
+          {task.completed && <Check className="w-3.5 h-3.5 text-[var(--card-surface)] stroke-[3]" />}
         </button>
       )}
 
@@ -265,14 +276,14 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
           onChange={(e) => setEditText(e.target.value)}
           onBlur={handleSaveEdit}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent border-b border-[#2EE6D8] text-[#E9EDF2] text-[15px] focus:outline-none"
+          className="flex-1 bg-transparent border-b border-[var(--accent)] text-[var(--text-bright)] text-h3 focus:outline-none"
         />
       ) : (
         <span
-          className={`flex-1 text-[15px] transition-colors ${
+          className={`flex-1 text-h3 transition-colors ${
             task.completed
-              ? 'line-through text-[#8B95A5] opacity-50'
-              : 'text-[#E9EDF2]'
+              ? 'line-through text-[var(--text-muted)] opacity-50'
+              : 'text-[var(--text-bright)]'
           }`}
           onDoubleClick={() => {
             if (!locked && onEdit) {
@@ -288,7 +299,7 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
       {/* Action buttons */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {locked && (
-          <Lock className="w-4 h-4 text-[#5B6574]" />
+          <Lock className="w-4 h-4 text-[var(--text-muted2)]" />
         )}
         {!locked && onEdit && !isEditing && (
           <button
@@ -298,7 +309,7 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
             }}
             className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors"
           >
-            <Pencil className="w-3.5 h-3.5 text-[#8B95A5]" />
+            <Pencil className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           </button>
         )}
         {!locked && onDelete && (
@@ -306,7 +317,7 @@ const TaskItem = ({ task, locked, isTomorrow, onToggle, onDelete, onEdit }) => {
             onClick={() => onDelete(task)}
             className="w-7 h-7 rounded-lg hover:bg-[#F87171]/20 flex items-center justify-center transition-colors"
           >
-            <X className="w-4 h-4 text-[#8B95A5] hover:text-[#F87171]" />
+            <X className="w-4 h-4 text-[var(--text-muted)] hover:text-[#F87171]" />
           </button>
         )}
       </div>

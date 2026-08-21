@@ -1,6 +1,14 @@
 import { motion } from 'framer-motion';
-import { Award, CalendarDays, Flame, Radio, Target, Trophy } from 'lucide-react';
+import { CalendarDays, Flame, Radio, Target, Trophy } from 'lucide-react';
 import { isDayComplete } from '../../utils/storage';
+import { AnimatedCounter, Sparkline, TrendArrow } from './AnimatedCounter';
+
+const CARD_ACCENTS = [
+  { gradient: 'linear-gradient(135deg, #2EE6D8, #1CC9B8)', icon: CalendarDays, label: 'Active Days', dotColor: '#2EE6D8' },
+  { gradient: 'linear-gradient(135deg, #FFB443, #E5972E)', icon: Flame, label: 'Streak', dotColor: '#FFB443' },
+  { gradient: 'linear-gradient(135deg, #4ADE80, #34C759)', icon: Trophy, label: 'Best', dotColor: '#4ADE80' },
+  { gradient: 'linear-gradient(135deg, #F87171, #EF4444)', icon: Target, label: 'Completion', dotColor: '#F87171' },
+];
 
 export const StatsRow = ({ entries, streak }) => {
   const activeDays = entries.filter((e) => e.todayTasks && e.todayTasks.length > 0).length;
@@ -29,159 +37,214 @@ export const StatsRow = ({ entries, streak }) => {
 
   const thisWeekComplete = getWeekCompleteCount(startOfThisWeek, now);
   const lastWeekComplete = getWeekCompleteCount(startOfLastWeek, startOfThisWeek);
-  const weeklyDelta = thisWeekComplete - lastWeekComplete;
+  // Generate 7-day sparkline data
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const entry = entries.find(e => e.date === dateStr);
+    const tasks = entry?.todayTasks || [];
+    return tasks.length > 0 ? tasks.filter(t => t.completed).length / tasks.length * 100 : 0;
+  });
 
-  const activeDots = Array.from({ length: 7 }, (_, i) => i < Math.min(activeDays, 7));
-  const streakChips = Array.from({ length: 10 }, (_, i) => i < Math.ceil(streakProgress * 10));
+  const last7DaysActive = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const entry = entries.find(e => e.date === dateStr);
+    return (entry?.todayTasks?.length || 0) > 0 ? 1 : 0;
+  });
 
-  const getAiInsight = () => {
-    if (streak.current >= 7) return 'Streak engine is hot';
-    if (streak.current >= 3) return 'Momentum is forming';
-    if (completionRate >= 70) return 'Consistency signal strong';
-    return 'Prime the first win';
-  };
+  // Calculate weekly delta percentage
+  const weeklyDeltaPct = lastWeekComplete > 0
+    ? Math.round(((thisWeekComplete - lastWeekComplete) / lastWeekComplete) * 100)
+    : thisWeekComplete > 0 ? 100 : 0;
 
-  const getAiSubtext = () => {
-    if (weeklyDelta > 0) {
-      return `${weeklyDelta} more complete day${weeklyDelta === 1 ? '' : 's'} than last week.`;
-    }
-    if (weeklyDelta < 0) {
-      return `${Math.abs(weeklyDelta)} behind last week. A small task can restart the rhythm.`;
-    }
-    if (thisWeekComplete > 0) {
-      return 'Holding steady with last week. Keep the chain warm.';
-    }
-    return 'Complete one task today to wake up the streak system.';
-  };
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 px-4 sm:px-6 mb-5">
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        whileHover={{ y: -3, transition: { duration: 0.2 } }}
-        className="relative overflow-hidden rounded-2xl border border-[#16E2F5]/20 bg-[#030610]/70 p-4 shadow-[0_0_24px_rgba(22,226,245,0.08)] backdrop-blur-sm"
-      >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#16E2F5]/70 to-transparent" />
-        <div className="flex items-center justify-between">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#16E2F5]/10">
-            <CalendarDays className="h-[18px] w-[18px] text-[#16E2F5]" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#16E2F5]/70">Active</span>
-        </div>
-        <p className="mt-3 text-2xl font-bold tabular-nums text-white">{activeDays}</p>
-        <div className="mt-3 grid grid-cols-7 gap-1">
-          {activeDots.map((isLit, index) => (
-            <div
-              key={index}
-              className="h-1.5 rounded-full"
-              style={{ background: isLit ? '#16E2F5' : 'rgba(161,170,237,0.16)' }}
-            />
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-[#a1aaed]">tracked study days</p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.06, duration: 0.4 }}
-        whileHover={{ y: -3, transition: { duration: 0.2 } }}
-        className="relative overflow-hidden rounded-2xl border border-[#ff7a00]/35 bg-[#110704]/80 p-4 shadow-[0_0_28px_rgba(255,94,0,0.16)] backdrop-blur-sm"
-      >
-        <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-[#ff6a00]/20 blur-2xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ffb000] to-transparent" />
-        <div className="flex items-center justify-between">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff6a00]/15">
-            <Flame className="h-[18px] w-[18px] text-[#ff8a00]" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#ffb000]/80">{streakPercent}%</span>
-        </div>
-        <p className="mt-3 text-2xl font-bold tabular-nums text-white">{streak.current}</p>
-        <div className="mt-3 grid grid-cols-10 gap-1">
-          {streakChips.map((isLit, index) => (
-            <div
-              key={index}
-              className="h-1.5 rounded-full"
-              style={{ background: isLit ? 'linear-gradient(90deg, #ff3d00, #ffb000)' : 'rgba(255,122,0,0.16)' }}
-            />
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-[#ffc36b]">30-day streak charge</p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12, duration: 0.4 }}
-        whileHover={{ y: -3, transition: { duration: 0.2 } }}
-        className="relative overflow-hidden rounded-2xl border border-[#ffc107]/25 bg-[#090812]/75 p-4 shadow-[0_0_24px_rgba(255,193,7,0.08)] backdrop-blur-sm"
-      >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ffc107]/70 to-transparent" />
-        <div className="flex items-center justify-between">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ffc107]/12">
-            <Trophy className="h-[18px] w-[18px] text-[#ffc107]" />
-          </div>
-          <Award className="h-4 w-4 text-[#ffc107]/55" />
-        </div>
-        <p className="mt-3 text-2xl font-bold tabular-nums text-white">{streak.longest}</p>
-        <div className="mt-3 h-1.5 rounded-full bg-[#ffc107]/12">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[#ffb000] to-[#ffe58a]"
-            style={{ width: `${Math.min(Math.max((streak.longest / streakGoal) * 100, 8), 100)}%` }}
+  const stats = [
+    {
+      value: activeDays,
+      sub: 'tracked study days',
+      dotCount: 7,
+      dotFill: Math.min(activeDays, 7),
+      extra: null,
+      sparklineData: last7DaysActive,
+      trend: weeklyDeltaPct,
+    },
+    {
+      value: streak.current,
+      sub: '30-day streak charge',
+      dotCount: 10,
+      dotFill: Math.ceil(streakProgress * 10),
+      badge: `${streakPercent}%`,
+      extra: null,
+      sparklineData: last7Days,
+    },
+    {
+      value: streak.longest,
+      sub: 'personal best record',
+      dotCount: null,
+      dotFill: null,
+      extra: (
+        <div className="mt-3 h-1.5 rounded-full bg-[#1E2530] overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(Math.max((streak.longest / streakGoal) * 100, 8), 100)}%` }}
+            transition={{ duration: 1, ease: 'easeOut' }}
+            className="h-full rounded-full"
+            style={{ background: 'linear-gradient(90deg, #4ADE80, #34C759)' }}
           />
         </div>
-        <p className="mt-2 text-[11px] text-[#ffe08a]">personal best record</p>
-      </motion.div>
+      ),
+    },
+    {
+      value: completionRate,
+      valueSuffix: '%',
+      sub: 'all-time completion',
+      dotCount: null,
+      dotFill: null,
+      sparklineData: last7Days,
+      extra: (
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#F87171]" />
+            <span className="text-micro text-[#5B6574]">{completeDays}/{activeDays || 0} days</span>
+          </div>
+          <div className="relative w-10 h-10">
+            <svg className="w-10 h-10 -rotate-90" viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="16" fill="none" stroke="#1E2530" strokeWidth="3" />
+              <motion.circle
+                cx="20" cy="20" r="16" fill="none" stroke="#F87171" strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 16}`}
+                initial={{ strokeDashoffset: 2 * Math.PI * 16 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 16 * (1 - completionRate / 100) }}
+                transition={{ duration: 1.5, ease: 'easeOut' }}
+              />
+            </svg>
+          </div>
+        </div>
+      ),
+    },
+  ];
 
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.18, duration: 0.4 }}
-        whileHover={{ y: -3, transition: { duration: 0.2 } }}
-        className="relative overflow-hidden rounded-2xl border border-[#00ffb2]/22 bg-[#03100d]/70 p-4 shadow-[0_0_24px_rgba(0,255,178,0.08)] backdrop-blur-sm"
-      >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00ffb2]/70 to-transparent" />
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-white">{completionRate}%</p>
-            <p className="mt-0.5 text-[11px] text-[#95ffe1]">all-time completion</p>
-          </div>
-          <div
-            className="grid h-11 w-11 place-items-center rounded-full"
-            style={{
-              background: `conic-gradient(#00ffb2 ${completionRate * 3.6}deg, rgba(0,255,178,0.14) 0deg)`,
-            }}
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 px-4 sm:px-6 mb-6">
+      {stats.map((stat, i) => {
+        const accent = CARD_ACCENTS[i];
+        if (!accent) return null;
+        const Icon = accent.icon;
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', borderColor: `${accent.dotColor}22`, transition: { duration: 0.2 } }}
+            className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[18px] p-4"
           >
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#03100d]">
-              <Target className="h-4 w-4 text-[#00ffb2]" />
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#00ffb2]" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#00ffb2]/70">{completeDays}/{activeDays || 0} days clean</span>
-        </div>
-      </motion.div>
+
+              <div className="flex items-center justify-between">
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-xl relative"
+                  style={{ background: `${accent.dotColor}12` }}
+                >
+                  <Icon className="h-[18px] w-[18px]" style={{ color: accent.dotColor }} />
+                  <div className="absolute inset-0 rounded-xl" style={{ background: `radial-gradient(circle at center, ${accent.dotColor}22, transparent)`, filter: 'blur(4px)' }} />
+                </div>
+                {stat.badge && (
+                  <span className="text-micro font-semibold tabular-nums" style={{ color: accent.dotColor }}>
+                    {stat.badge}
+                  </span>
+                )}
+                {!stat.badge && i !== 2 && (
+                  <span className="text-overline" style={{ color: '#5B6574', fontSize: '0.5625rem' }}>
+                    {accent.label}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mt-3">
+                <AnimatedCounter
+                  value={typeof stat.value === 'string' ? parseFloat(stat.value) : stat.value}
+                  suffix={stat.valueSuffix || ''}
+                  className="text-[1.75rem] font-bold tracking-tight"
+                  style={{ color: 'var(--text-bright)', fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif" }}
+                />
+                {stat.sparklineData && (
+                  <Sparkline data={stat.sparklineData} color={accent.dotColor} width={60} height={22} />
+                )}
+              </div>
+              {stat.trend !== undefined && stat.trend !== 0 && (
+                <div className="mt-1">
+                  <TrendArrow value={stat.trend} className="text-micro" />
+                  <span className="text-micro ml-1" style={{ color: 'var(--text-muted)' }}>vs last week</span>
+                </div>
+              )}
+
+              {stat.dotCount && (
+                <div className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${stat.dotCount}, 1fr)` }}>
+                  {Array.from({ length: stat.dotCount }, (_, di) => (
+                    <motion.div
+                      key={di}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: i * 0.06 + di * 0.03, duration: 0.2 }}
+                      className="h-1.5 rounded-full"
+                      style={{ background: di < stat.dotFill ? accent.dotColor : '#1E2530' }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {stat.extra}
+
+              <p className="mt-1.5 text-caption" style={{ color: 'var(--text-muted)' }}>{stat.sub}</p>
+          </motion.div>
+        );
+      })}
 
       {/* AI Insight Card */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.24, duration: 0.4 }}
-        className="relative col-span-2 overflow-hidden rounded-2xl border border-[#a78bfa]/22 bg-[#070516]/75 p-4 shadow-[0_0_24px_rgba(167,139,250,0.08)] backdrop-blur-sm sm:col-span-3 lg:col-span-1"
+        transition={{ delay: 0.3, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', borderColor: 'rgba(46,230,216,0.12)', transition: { duration: 0.2 } }}
+        className="bg-[var(--card-bg)] backdrop-blur-[16px] rounded-[18px] p-4 sm:col-span-1 lg:col-span-1 relative overflow-hidden"
+        style={{ border: '1px solid rgba(46,230,216,0.1)' }}
       >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#a78bfa]/70 to-transparent" />
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Radio className="h-3.5 w-3.5 text-[#a78bfa]" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#a78bfa]">AI Readout</span>
+          {/* Animated gradient accent */}
+          <div className="absolute top-0 left-0 right-0 h-[2px]" style={{
+            background: 'linear-gradient(90deg, #2EE6D8, #A78BFA, #FFB443, #2EE6D8)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer-sweep 3s ease-in-out infinite',
+          }} />
+
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Radio className="h-3.5 w-3.5 text-[#2EE6D8]" />
+                <div className="absolute -inset-1 rounded-full" style={{ background: 'rgba(46,230,216,0.15)', filter: 'blur(4px)' }} />
+              </div>
+              <span className="text-overline" style={{ color: '#2EE6D8', fontSize: '0.5625rem' }}>AI Pulse</span>
+            </div>
+            <span className="relative flex w-2 h-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#2EE6D8' }} />
+              <span className="relative inline-flex rounded-full w-2 h-2" style={{ background: '#2EE6D8' }} />
+            </span>
           </div>
-          <span className="h-2 w-2 rounded-full bg-[#a78bfa] shadow-[0_0_10px_rgba(167,139,250,0.9)]" />
-        </div>
-        <p className="text-sm font-bold leading-snug text-white">{getAiInsight()}</p>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-[#c4b5fd]">{getAiSubtext()}</p>
+
+          <p className="text-body font-semibold leading-snug" style={{ color: '#E9EDF2', fontFamily: "'Space Grotesk', 'Inter', system-ui, sans-serif" }}>
+            {streak.current >= 7 ? 'Streak engine is hot' : streak.current >= 3 ? 'Momentum is forming' : completionRate >= 70 ? 'Consistency signal strong' : 'Prime the first win'}
+          </p>
+
+          <div className="mt-2 flex items-center gap-2">
+            <Sparkline data={last7Days} color="#2EE6D8" width={50} height={18} />
+            {weeklyDeltaPct !== 0 && <TrendArrow value={weeklyDeltaPct} />}
+          </div>
+
+          <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            {thisWeekComplete > 0 ? `${thisWeekComplete} complete day${thisWeekComplete === 1 ? '' : 's'} this week` : 'Complete one task today'}
+          </p>
       </motion.div>
     </div>
   );

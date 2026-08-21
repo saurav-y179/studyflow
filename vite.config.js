@@ -5,11 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    open: true,
-    allowedHosts: ['grandma-shortwave-backlog.ngrok-free.dev'],
-    headers: {
-      'ngrok-skip-browser-warning': 'true',
-    },
+    port: 5173,
+    open: false,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

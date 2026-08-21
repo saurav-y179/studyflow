@@ -1,15 +1,15 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format, eachDayOfInterval, subMonths, parseISO } from 'date-fns';
-import { ChevronDown } from 'lucide-react';
+
 
 const INTENSITY_COLORS = [
-  'rgba(26,34,64,0.5)',   // Level 0 - no activity
-  '#1a2845',              // Level 1 - very low
-  '#1a4a60',              // Level 2 - low  
-  '#00a0d4',              // Level 3 - moderate
-  '#737fe3',              // Level 4 - high
-  '#00ffb2',              // Level 5 - very high
+  '#1E2530',   // Level 0 - no activity
+  '#2a3345',   // Level 1 - very low
+  '#3b4559',   // Level 2 - low  
+  '#2EE6D8',   // Level 3 - moderate
+  '#5FFBEF',   // Level 4 - high
+  '#A8FEF5',   // Level 5 - very high
 ];
 
 export const ActivityHeatmap = ({ entries }) => {
@@ -83,13 +83,11 @@ export const ActivityHeatmap = ({ entries }) => {
 
   const dayLabels = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 
-  // Calculate top subjects from tasks
   const topSubjects = useMemo(() => {
     const subjects = {};
     entries.forEach((entry) => {
       const tasks = entry.todayTasks || [];
       tasks.forEach((task) => {
-        // Extract subject from task text (first word or dash-separated)
         const parts = task.text.split(/[–\-:]/);
         const subject = parts[0]?.trim() || 'General';
         if (!subjects[subject]) subjects[subject] = 0;
@@ -102,28 +100,92 @@ export const ActivityHeatmap = ({ entries }) => {
       .slice(0, 4);
 
     const total = sorted.reduce((sum, [, count]) => sum + count, 0) || 1;
-    const colors = ['#152ad1', '#737fe3', '#00ffb2', '#ff6b6b'];
+    const colors = ['#2EE6D8', '#FFB443', '#4ADE80', '#F87171'];
 
     return sorted.map(([name, count], i) => ({
       name,
       percent: Math.round((count / total) * 100),
-      color: colors[i] || '#6b7da0',
+      color: colors[i] || '#8B95A5',
     }));
   }, [entries]);
 
   return (
-    <div className="bg-[#030610]/90 backdrop-blur-xl border-2 border-[#16E2F5]/40 shadow-[0_0_20px_rgba(22,226,245,0.15)] rounded-2xl p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-bold text-[15px] tracking-tight flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#737fe3] shadow-[0_0_8px_rgba(115,127,227,0.5)]" />
-          Activity Heatmap
-        </h3>
-        <button className="flex items-center gap-1 text-[11px] text-[#a1aaed] px-2.5 py-1 bg-[#1a2240]/40 rounded-lg hover:bg-[#1a2240]/60 transition-colors">
-          {timeRange}
-          <ChevronDown className="w-3 h-3" />
-        </button>
-      </div>
+    <motion.div
+      className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[18px] p-5"
+      whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', borderColor: 'rgba(46,230,216,0.12)', transition: { duration: 0.2 } }}
+    >
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-h2 tracking-tight flex items-center gap-2" style={{ color: '#E9EDF2' }}>
+            <div className="relative">
+              <div className="w-2 h-2 rounded-full bg-[#2EE6D8]" />
+              <div className="absolute -inset-1 rounded-full" style={{ background: 'rgba(46,230,216,0.2)', filter: 'blur(4px)' }} />
+            </div>
+            Activity Heatmap
+          </h3>
+          {/* Contribution count */}
+          <span className="text-caption font-medium tabular-nums" style={{ color: '#8B95A5' }}>
+            {entries.filter(e => e.todayTasks?.length > 0).length} contributions this year
+          </span>
+        </div>
+
+        {/* Streak milestone celebration */}
+        {[30, 21, 14, 7].map(milestone => {
+          const currentStreak = entries.reduce((streak, _, idx) => {
+            // Simple check: just use the prop data from weeklyData
+            return streak;
+          }, 0);
+          return null;
+        }).filter(Boolean)}
+        {entries.length > 0 && (() => {
+          // Calculate streak for milestone display
+          const completeDates = new Set();
+          entries.forEach(e => {
+            const tasks = e.todayTasks || [];
+            if (tasks.length > 0 && tasks.filter(t => t.completed).length / tasks.length >= 0.8) {
+              completeDates.add(e.date);
+            }
+          });
+          const sorted = [...completeDates].sort();
+          let currentStreak = 0;
+          if (sorted.length > 0) {
+            const today = new Date().toISOString().slice(0, 10);
+            let cursor = today;
+            if (!completeDates.has(cursor)) {
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate() - 1);
+              cursor = yesterday.toISOString().slice(0, 10);
+            }
+            while (completeDates.has(cursor)) {
+              currentStreak++;
+              const d = new Date(`${cursor}T00:00:00`);
+              d.setDate(d.getDate() - 1);
+              cursor = d.toISOString().slice(0, 10);
+            }
+          }
+          const milestone = [30, 21, 14, 7].find(m => currentStreak >= m);
+          if (!milestone) return null;
+          const MILESTONES = {
+            7: { emoji: '🔥', text: '1 Week Streak!', color: '#FFB443' },
+            14: { emoji: '⚡', text: '2 Week Streak!', color: '#A78BFA' },
+            21: { emoji: '🚀', text: '3 Week Streak!', color: '#60A5FA' },
+            30: { emoji: '👑', text: 'Monthly Streak!', color: '#4ADE80' },
+          };
+          const m = MILESTONES[milestone];
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 px-3 py-2 rounded-xl flex items-center gap-2"
+              style={{ background: `${m.color}10`, border: `1px solid ${m.color}20` }}
+            >
+              <span className="text-base animate-fire">{m.emoji}</span>
+              <span className="text-[11px] font-bold" style={{ color: m.color }}>{m.text}</span>
+              <span className="text-micro ml-auto tabular-nums" style={{ color: `${m.color}80` }}>{currentStreak} days</span>
+            </motion.div>
+          );
+        })()}
 
       <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto] gap-8">
         {/* Heatmap grid */}
@@ -134,7 +196,7 @@ export const ActivityHeatmap = ({ entries }) => {
               {dayLabels.map((day, i) => (
                 <div
                   key={`label-${i}`}
-                  className="text-[9px] text-[#a1aaed]/70 flex items-center"
+                  className="text-[9px] text-[#5B6574] flex items-center"
                   style={{ height: '11px', lineHeight: '11px' }}
                 >
                   {day}
@@ -151,7 +213,7 @@ export const ActivityHeatmap = ({ entries }) => {
                   return (
                     <div
                       key={`${m.month}-${i}`}
-                      className="text-[9px] text-[#a1aaed]/70"
+                      className="text-[9px] text-[#5B6574]"
                       style={{ width: `${span * 13}px` }}
                     >
                       {m.month}
@@ -171,9 +233,9 @@ export const ActivityHeatmap = ({ entries }) => {
                       return (
                         <motion.div
                           key={dayIndex}
-                          className="w-[11px] h-[11px] rounded-[2px] cursor-pointer"
+                          className="w-[11px] h-[11px] rounded-[2px] cursor-pointer relative"
                           style={{ backgroundColor: INTENSITY_COLORS[day.level] }}
-                          whileHover={{ scale: 1.5 }}
+                          whileHover={{ scale: 1.6 }}
                           onMouseEnter={(e) => {
                             const rect = e.target.getBoundingClientRect();
                             setTooltip({
@@ -184,7 +246,17 @@ export const ActivityHeatmap = ({ entries }) => {
                             });
                           }}
                           onMouseLeave={() => setTooltip(null)}
-                        />
+                        >
+                          {day.level >= 3 && (
+                            <div
+                              className="absolute inset-0 rounded-[2px] opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{
+                                background: `radial-gradient(circle at center, ${INTENSITY_COLORS[day.level]}66, transparent)`,
+                                filter: 'blur(3px)',
+                              }}
+                            />
+                          )}
+                        </motion.div>
                       );
                     })}
                   </div>
@@ -195,7 +267,7 @@ export const ActivityHeatmap = ({ entries }) => {
 
           {/* Legend */}
           <div className="flex items-center justify-end gap-1 mt-2">
-            <span className="text-[9px] text-[#a1aaed]/70 mr-0.5">Less</span>
+            <span className="text-[9px] text-[#5B6574] mr-0.5">Less</span>
             {INTENSITY_COLORS.map((color, i) => (
               <div
                 key={i}
@@ -203,21 +275,21 @@ export const ActivityHeatmap = ({ entries }) => {
                 style={{ backgroundColor: color }}
               />
             ))}
-            <span className="text-[9px] text-[#a1aaed]/70 ml-0.5">More</span>
+            <span className="text-[9px] text-[#5B6574] ml-0.5">More</span>
           </div>
         </div>
 
         {/* Top Subjects */}
         <div className="w-[180px] flex-shrink-0">
-          <p className="text-[11px] text-[#a1aaed] font-bold uppercase tracking-wider mb-3">Top Subjects</p>
+          <p className="text-overline mb-3" style={{ color: '#8B95A5', fontSize: '0.625rem' }}>Top Subjects</p>
           <div className="space-y-2.5">
             {topSubjects.length === 0 ? (
-              <p className="text-[#a1aaed]/70 text-xs">No data yet</p>
+              <p className="text-[#5B6574] text-xs">No data yet</p>
             ) : (
               topSubjects.map((subject) => (
                 <div key={subject.name} className="flex items-center gap-2">
-                  <span className="text-xs text-[#8ba0c8] flex-1 truncate">{subject.name}</span>
-                  <div className="w-[60px] h-1.5 bg-[#1a2240] rounded-full overflow-hidden">
+                  <span className="text-xs text-[#5B6574] flex-1 truncate">{subject.name}</span>
+                  <div className="w-[60px] h-1.5 bg-[#1E2530] rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${subject.percent}%` }}
@@ -226,7 +298,7 @@ export const ActivityHeatmap = ({ entries }) => {
                       style={{ backgroundColor: subject.color }}
                     />
                   </div>
-                  <span className="text-[10px] text-[#a1aaed] tabular-nums w-[30px] text-right">{subject.percent}%</span>
+                  <span className="text-micro text-[#5B6574] tabular-nums w-[30px] text-right">{subject.percent}%</span>
                 </div>
               ))
             )}
@@ -236,26 +308,28 @@ export const ActivityHeatmap = ({ entries }) => {
 
       {/* Tooltip */}
       {tooltip && (
-        <div
-          className="fixed bg-[#152ad1]/20 backdrop-blur-xl rounded-lg px-3 py-2 z-[60] pointer-events-none shadow-xl shadow-black/40 border border-[#4455da]/30"
+        <motion.div
+          initial={{ opacity: 0, y: 4, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="fixed z-[60] pointer-events-none"
           style={{
             left: tooltip.x,
-            top: tooltip.y - 48,
+            top: tooltip.y - 52,
             transform: 'translateX(-50%)',
           }}
         >
-          <p className="text-white font-medium text-xs">
-            {format(parseISO(tooltip.date), 'MMM d, yyyy')}
-          </p>
-          <p className="text-[#a1aaed] text-[10px] mt-0.5">
-            {tooltip.level >= 4
-              ? '✓ Complete'
-              : tooltip.level >= 2
-              ? '◐ Partial'
-              : '○ No activity'}
-          </p>
-        </div>
+          <div className="relative rounded-xl px-3.5 py-2.5 shadow-2xl" style={{ background: '#1E2530', border: '1px solid rgba(46,230,216,0.15)' }}>
+            <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2 h-2 rotate-45" style={{ background: '#1E2530', borderRight: '1px solid rgba(46,230,216,0.15)', borderBottom: '1px solid rgba(46,230,216,0.15)' }} />
+            <p className="text-[#E9EDF2] font-semibold text-xs">{format(parseISO(tooltip.date), 'MMM d, yyyy')}</p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <div className="w-2 h-2 rounded-[2px]" style={{ background: INTENSITY_COLORS[tooltip.level] }} />
+              <span className="text-micro font-medium" style={{ color: tooltip.level >= 3 ? '#2EE6D8' : '#5B6574' }}>
+                {tooltip.level >= 4 ? 'Fully complete' : tooltip.level >= 2 ? 'Partially done' : 'No activity'}
+              </span>
+            </div>
+          </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };

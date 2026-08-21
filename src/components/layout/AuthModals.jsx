@@ -2,7 +2,7 @@ import { AnimatePresence } from 'framer-motion';
 import { RegistrationModal } from '../RegistrationModal';
 import { SettingsModal } from '../SettingsModal';
 
-export const AuthModals = ({ user, isSettingsOpen, onRegister, onSaveSettings, onCloseSettings }) => {
+export const AuthModals = ({ user, isSettingsOpen, onRegister, onSaveSettings, onCloseSettings, onSwitchProfile, onCreateNewProfile }) => {
   return (
     <AnimatePresence>
       {!user && <RegistrationModal key="register" onRegister={onRegister} />}
@@ -12,6 +12,8 @@ export const AuthModals = ({ user, isSettingsOpen, onRegister, onSaveSettings, o
           user={user}
           onSave={onSaveSettings}
           onClose={onCloseSettings}
+          onSwitchProfile={onSwitchProfile}
+          onCreateNewProfile={onCreateNewProfile}
         />
       )}
     </AnimatePresence>

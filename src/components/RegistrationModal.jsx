@@ -52,10 +52,11 @@ export const RegistrationModal = ({ onRegister }) => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-text-secondary text-sm font-medium mb-2">
+              <label htmlFor="reg-name" className="block text-text-secondary text-sm font-medium mb-2">
                 Your Name
               </label>
               <input
+                id="reg-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -66,10 +67,11 @@ export const RegistrationModal = ({ onRegister }) => {
             </div>
 
             <div>
-              <label className="block text-text-secondary text-sm font-medium mb-2">
+              <label htmlFor="reg-email" className="block text-text-secondary text-sm font-medium mb-2">
                 Email <span className="text-text-tertiary">(optional)</span>
               </label>
               <input
+                id="reg-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -79,10 +81,11 @@ export const RegistrationModal = ({ onRegister }) => {
             </div>
 
             <div>
-              <label className="block text-text-secondary text-sm font-medium mb-2">
+              <label htmlFor="reg-goal" className="block text-text-secondary text-sm font-medium mb-2">
                 Daily Study Goal
               </label>
               <select
+                id="reg-goal"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 className="w-full px-4 py-3 bg-background/50 border border-glass-border rounded-xl text-text-primary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"

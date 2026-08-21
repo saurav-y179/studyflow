@@ -1,5 +1,99 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useState, useEffect, useCallback, useRef } from 'react';
+
+// ─── GlossyShine ──────────────────────────────────────────────────────────────
+// Premium sticker-shine effect with zero cursor lag.
+// Bypasses React state entirely for position updates — writes directly to the
+// DOM overlay element so the GPU composite happens every frame with no re-render.
+// Three gradient layers:
+//   1. Tight specular hot-spot  (the bright lens-flare core)
+//   2. Wide soft bloom halo     (the ambient illumination bleed)
+//   3. Warm Fresnel rim glow    (counter-glow on the opposite side, like backlighting)
+const GlossyShine = ({ containerRef }) => {
+  const overlayRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    const overlay = overlayRef.current;
+    if (!el || !overlay) return;
+
+    const buildGradient = (x, y) => {
+      // Fresnel counter-glow sits opposite the cursor
+      const rx = 100 - x;
+      const ry = 100 - y;
+      return `
+        radial-gradient(
+          circle 26px at ${x}% ${y}%,
+          rgba(255,255,255,0.95) 0%,
+          rgba(255,255,255,0.65) 20%,
+          rgba(255,255,255,0.18) 55%,
+          transparent 100%
+        ),
+        radial-gradient(
+          circle 72px at ${x}% ${y}%,
+          rgba(255,255,255,0.22) 0%,
+          rgba(255,255,255,0.08) 50%,
+          transparent 100%
+        ),
+        radial-gradient(
+          circle 60px at ${rx}% ${ry}%,
+          rgba(255,220,80,0.14) 0%,
+          rgba(255,180,60,0.06) 50%,
+          transparent 100%
+        )
+      `;
+    };
+
+    const onMove = (e) => {
+      const rect = el.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      // Direct DOM write — no React re-render, no lag
+      overlay.style.background = buildGradient(x, y);
+    };
+
+    const onEnter = () => setVisible(true);
+    const onLeave = () => setVisible(false);
+
+    el.addEventListener('mousemove', onMove);
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+    return () => {
+      el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+    };
+  }, [containerRef]);
+
+  return (
+    <div
+      ref={overlayRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        zIndex: 10,
+        borderRadius: '8px',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.3s ease',
+        mixBlendMode: 'screen',
+        willChange: 'background, opacity',
+        // Initial gradient centred — replaced on first mousemove
+        background: buildGradientStatic(50, 50),
+      }}
+    />
+  );
+};
+
+// Helper used only for the initial static render (before any mouse event)
+function buildGradientStatic(x, y) {
+  const rx = 100 - x;
+  const ry = 100 - y;
+  return `
+    radial-gradient(circle 26px at ${x}% ${y}%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.65) 20%, rgba(255,255,255,0.18) 55%, transparent 100%),
+    radial-gradient(circle 72px at ${x}% ${y}%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 50%, transparent 100%),
+    radial-gradient(circle 60px at ${rx}% ${ry}%, rgba(255,220,80,0.14) 0%, rgba(255,180,60,0.06) 50%, transparent 100%)
+  `;
+}
 
 // Ordered for natural motion: sit → wave → jump → turn → loop
 const POSES = [
@@ -47,10 +141,12 @@ const Spark = ({ delay, left, duration, y, x }) => (
 );
 
 export const ActivePikachu = ({ recentActivity }) => {
+  const shouldReduceMotion = useReducedMotion();
   const [currentIndex, setCurrentIndex] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const lastInteraction = useRef(0);
   const prevActivity = useRef(null);
+  const shineContainerRef = useRef(null);
 
   // Preload images
   useEffect(() => {
@@ -97,8 +193,9 @@ export const ActivePikachu = ({ recentActivity }) => {
   return (
     <div className="relative mx-auto mb-2 flex flex-col items-center">
       <motion.div
-        animate={{ y: [0, -3, 0] }}
-        transition={{ y: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } }}
+        ref={shineContainerRef}
+        animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
+        transition={shouldReduceMotion ? {} : { y: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } }}
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -116,7 +213,7 @@ export const ActivePikachu = ({ recentActivity }) => {
         />
 
         {/* Electric sparks */}
-        {SPARKS.map((s, i) => (
+        {!shouldReduceMotion && SPARKS.map((s, i) => (
           <Spark key={i} {...s} />
         ))}
 
@@ -137,16 +234,18 @@ export const ActivePikachu = ({ recentActivity }) => {
                 transform: isHovered ? 'scale(1.07)' : 'scale(1)',
                 transition: 'filter 0.3s ease, transform 0.3s ease',
               }}
-              initial={{ opacity: 0, scale: 0.88, rotate: -3 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.88, rotate: 3 }}
+              initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.88 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.88 }}
               transition={{
-                opacity: { duration: 0.2, ease: 'easeInOut' },
-                scale: { type: 'spring', stiffness: 350, damping: 22 },
-                rotate: { duration: 0.2 },
+                duration: shouldReduceMotion ? 0.15 : 0.2,
+                ease: 'easeOut',
               }}
             />
           </AnimatePresence>
+
+          {/* Glossy sticker-shine spotlight */}
+          <GlossyShine containerRef={shineContainerRef} />
         </div>
 
         {/* Floor glow */}

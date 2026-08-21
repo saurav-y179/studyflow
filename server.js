@@ -3,6 +3,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,13 +12,58 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
 
+// ── API Key for simple auth ──────────────────────────────────────────
+// Set STUDYFLOW_API_KEY env var to enable. If unset, auth is disabled (local dev).
+const API_KEY = process.env.STUDYFLOW_API_KEY || '';
+
+// ── Rate Limiting (simple in-memory) ─────────────────────────────────
+const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 60; // max requests per window per IP
+
+const rateLimit = (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = rateLimitStore.get(ip);
+  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
+    rateLimitStore.set(ip, { start: now, count: 1 });
+    return next();
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) {
+    return res.status(429).json({ error: 'Too many requests' });
+  }
+  next();
+};
+
+// Periodically clean up expired entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitStore) {
+    if (now - entry.start > RATE_LIMIT_WINDOW) rateLimitStore.delete(ip);
+  }
+}, RATE_LIMIT_WINDOW);
+
 // ── Middleware ─────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.setHeader('ngrok-skip-browser-warning', 'true');
   next();
 });
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+app.use(express.json({ limit: '200kb' }));
+app.use(rateLimit);
+
+// ── Simple API key auth middleware ────────────────────────────────────
+const requireAuth = (req, res, next) => {
+  if (!API_KEY) return next(); // no key configured = open (dev mode)
+  const provided = req.headers['x-api-key'] || req.query.apiKey;
+  if (!provided || !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(API_KEY))) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
+
+app.use('/api', requireAuth);
 
 // ── Ensure data directory exists ──────────────────────────────────────
 if (!fs.existsSync(DATA_DIR)) {
@@ -40,11 +86,14 @@ const readJSON = (filename, fallback = null) => {
 
 const writeJSON = (filename, data) => {
   const filepath = path.join(DATA_DIR, filename);
+  const tmppath = filepath + '.tmp';
   try {
-    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(tmppath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmppath, filepath);
     return true;
   } catch (err) {
     console.error(`Error writing ${filename}:`, err.message);
+    try { fs.unlinkSync(tmppath); } catch { /* best-effort cleanup */ }
     return false;
   }
 };
@@ -152,7 +201,7 @@ app.post('/api/profiles', (req, res) => {
 app.delete('/api/profiles/:id', (req, res) => {
   const id = sanitizeId(req.params.id);
   let profiles = readJSON('profiles.json', []);
-  profiles = profiles.filter(p => p.id !== id && p.id !== req.params.id);
+  profiles = profiles.filter(p => p.id !== id);
   writeJSON('profiles.json', profiles);
 
   // Also delete associated data files
@@ -251,6 +300,159 @@ app.post('/api/chat/:profileId', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── CONNECTIONS (flexible external platform stats) ────────────────────
+
+const isValidConnections = (connections) => {
+  if (!Array.isArray(connections)) return false;
+  if (connections.length > 50) return false;
+  for (const conn of connections) {
+    if (!conn || typeof conn !== 'object') return false;
+    if (!conn.id || typeof conn.id !== 'string') return false;
+    if (!conn.platform || typeof conn.platform !== 'string') return false;
+    if (conn.platform.length > 50) return false;
+    if (conn.label && typeof conn.label !== 'string') return false;
+    if (conn.label && conn.label.length > 100) return false;
+  }
+  return true;
+};
+
+app.get('/api/connections/:profileId', (req, res) => {
+  const id = sanitizeId(req.params.profileId);
+  const connections = readJSON(`connections_${id}.json`, []);
+  res.json(connections);
+});
+
+app.post('/api/connections/:profileId', (req, res) => {
+  const id = sanitizeId(req.params.profileId);
+  const connections = req.body;
+  if (!isValidConnections(connections)) {
+    return res.status(400).json({ error: 'Invalid connections data' });
+  }
+  const payloadSize = JSON.stringify(connections).length;
+  if (payloadSize > MAX_PAYLOAD_SIZE) {
+    return res.status(400).json({ error: 'Payload too large' });
+  }
+  writeJSON(`connections_${id}.json`, connections);
+  res.json({ ok: true });
+});
+
+// ── CONNECTION STATS REFRESH (server-side proxy) ──────────────────────
+// POST /api/connections/:profileId/:connId/refresh
+// Fetches live stats from the platform API and updates the connection.
+const fetchGitHubStats = async (username, token) => {
+  const headers = { 'User-Agent': 'StudyFlow-App' };
+  if (token) headers['Authorization'] = `token ${token}`;
+
+  const [userRes, reposRes] = await Promise.all([
+    fetch(`https://api.github.com/users/${username}`, { headers }),
+    fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=100`, { headers }),
+  ]);
+
+  if (!userRes.ok) throw new Error(`GitHub API ${userRes.status}`);
+  const user = await userRes.json();
+  const repos = reposRes.ok ? await reposRes.json() : [];
+
+  const totalStars = repos.reduce((sum, r) => sum + (r.stargazers_count || 0), 0);
+  const totalForks = repos.reduce((sum, r) => sum + (r.forks_count || 0), 0);
+
+  return {
+    followers: user.followers || 0,
+    following: user.following || 0,
+    publicRepos: user.public_repos || 0,
+    totalStars,
+    totalForks,
+    avatarUrl: user.avatar_url || '',
+  };
+};
+
+const fetchHuggingFaceStats = async (username, token) => {
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const [userRes, modelsRes] = await Promise.all([
+    fetch(`https://huggingface.co/api/models?author=${username}&limit=100`, { headers }),
+    fetch(`https://huggingface.co/api/users/${username}`, { headers }),
+  ]);
+
+  const models = userRes.ok ? await userRes.json() : [];
+  const userInfo = modelsRes.ok ? await modelsRes.json() : {};
+
+  return {
+    models: models.length,
+    downloads: models.reduce((sum, m) => sum + (m.downloads || 0), 0),
+    likes: models.reduce((sum, m) => sum + (m.likes || 0), 0),
+    fullName: userInfo.fullname || username,
+  };
+};
+
+const fetchRedditStats = async (username) => {
+  const res = await fetch(`https://www.reddit.com/user/${username}/about.json`, {
+    headers: { 'User-Agent': 'StudyFlow/1.0' },
+  });
+  if (!res.ok) throw new Error(`Reddit API ${res.status}`);
+  const data = await res.json();
+  const d = data.data || {};
+  return {
+    linkKarma: d.link_karma || 0,
+    commentKarma: d.comment_karma || 0,
+    totalKarma: (d.link_karma || 0) + (d.comment_karma || 0),
+    cakeDay: d.created_utc ? new Date(d.created_utc * 1000).toISOString().slice(0, 10) : '',
+  };
+};
+
+const STATS_FETCHERS = {
+  github: fetchGitHubStats,
+  huggingface: fetchHuggingFaceStats,
+  reddit: fetchRedditStats,
+};
+
+app.post('/api/connections/:profileId/:connId/refresh', async (req, res) => {
+  const id = sanitizeId(req.params.profileId);
+  const connId = sanitizeId(req.params.connId);
+  const connections = readJSON(`connections_${id}.json`, []);
+  const conn = connections.find(c => c.id === connId);
+
+  if (!conn) {
+    return res.status(404).json({ error: 'Connection not found' });
+  }
+
+  const fetcher = STATS_FETCHERS[conn.platform];
+  if (!fetcher) {
+    return res.status(400).json({ error: `Auto-fetch not supported for ${conn.platform}. Add stats manually.` });
+  }
+
+  try {
+    // Extract username from URL if not provided
+    let username = conn.meta?.username;
+    if (!username && conn.meta?.url) {
+      // Try to extract username from common URL patterns
+      const url = conn.meta.url.replace(/\/+$/, '');
+      const parts = url.split('/');
+      username = parts[parts.length - 1];
+    }
+
+    if (!username) {
+      return res.status(400).json({ error: 'No username found. Add a profile URL or username.' });
+    }
+
+    const token = conn.credentials?.apiKey || undefined;
+    const stats = await fetcher(username, token);
+
+    // Update connection with fetched stats
+    conn.stats = stats;
+    conn.lastFetched = Date.now();
+    conn.fetchError = null;
+    writeJSON(`connections_${id}.json`, connections);
+
+    res.json({ ok: true, stats, lastFetched: conn.lastFetched });
+  } catch (err) {
+    conn.fetchError = err.message;
+    conn.lastFetched = Date.now();
+    writeJSON(`connections_${id}.json`, connections);
+    res.status(502).json({ error: `Failed to fetch stats: ${err.message}` });
+  }
+});
+
 // ── BULK SYNC ─────────────────────────────────────────────────────────
 // GET /api/sync/:profileId — get all data for a profile in one call
 app.get('/api/sync/:profileId', (req, res) => {
@@ -266,7 +468,7 @@ app.get('/api/sync/:profileId', (req, res) => {
 
 // ── HEALTH CHECK ──────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', dataDir: DATA_DIR });
+  res.json({ status: 'ok' });
 });
 
 // ── Production: serve built frontend ──────────────────────────────────

@@ -13,10 +13,14 @@ export const COMPLETION_THRESHOLD = 0.8;
 
 // ── Server sync helpers ───────────────────────────────────────────────
 const API_BASE = '/api';
-let _serverAvailable = null; // null = unknown, true/false after check
+let _serverAvailable = null;
+let _lastServerCheck = 0;
+const SERVER_CHECK_TTL = 30000; // re-check every 30s
 
 const checkServer = async () => {
-  if (_serverAvailable !== null) return _serverAvailable;
+  const now = Date.now();
+  if (_serverAvailable !== null && (now - _lastServerCheck) < SERVER_CHECK_TTL) return _serverAvailable;
+  _lastServerCheck = now;
   try {
     const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
     _serverAvailable = res.ok;
@@ -284,6 +288,10 @@ export const createEmptyEntry = (date) => ({
 });
 
 export const getTodayEntry = () => {
+  return getEntryByDate(getToday());
+};
+
+export const getOrCreateTodayEntry = () => {
   const today = getToday();
   let entry = getEntryByDate(today);
   if (!entry) {
@@ -295,11 +303,27 @@ export const getTodayEntry = () => {
 
 export const getTomorrowEntry = () => {
   const tomorrow = getTomorrow();
-  return getEntryByDate(tomorrow) || createEmptyEntry(tomorrow);
+  const existing = getEntryByDate(tomorrow);
+  if (existing) return existing;
+  const entry = createEmptyEntry(tomorrow);
+  saveEntry(entry);
+  return entry;
+};
+
+// ── Local datetime string (consistent with formatDate's local timezone) ─
+export const getLocalDateTimeString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
 // ── Task factory ──────────────────────────────────────────────────────
-export const createTask = (text, date, createdAt = new Date().toISOString()) => ({
+export const createTask = (text, date, createdAt = getLocalDateTimeString()) => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
   text: text.trim(),
   date,
@@ -310,10 +334,10 @@ export const createTask = (text, date, createdAt = new Date().toISOString()) => 
 
 export const buildPlannedTask = (task, executionDate) => ({
   ...task,
-  id: `planned-${task.id}`, // new stable ID so we can detect duplicates
+  id: task.id.startsWith('planned-') ? task.id : `planned-${task.id}`,
   date: executionDate,
   source: 'planned',
-  completed: false, // reset completion for the new day
+  completed: false,
 });
 
 // ── Task editing ──────────────────────────────────────────────────────
@@ -337,7 +361,7 @@ export const promotePlannedTasks = (currentDate = getToday()) => {
 
   const yesterday = addDaysDateStr(currentDate, -1);
   const yesterdayEntry = getEntryByDate(yesterday);
-  const todayEntry = getTodayEntry();
+  const todayEntry = getOrCreateTodayEntry();
 
   if (yesterdayEntry) {
     // Get uncompleted tasks from yesterday that were planned for today
@@ -456,6 +480,117 @@ export const calculateStreak = (entries) => {
 
   return { current, longest };
 };
+
+// ── External Connections (flexible stats from any platform) ────────
+const CONNECTIONS_KEY = 'studyflow_connections';
+
+export const getConnections = () => {
+  try {
+    const profileId = getActiveProfileId();
+    if (!profileId) return [];
+    const key = profileId === 'default' ? CONNECTIONS_KEY : `${CONNECTIONS_KEY}_${profileId}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveConnection = (connection) => {
+  const connections = getConnections();
+  if (!connection.id) {
+    connection.id = `conn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    connection.createdAt = Date.now();
+  }
+  connection.updatedAt = Date.now();
+  const idx = connections.findIndex((c) => c.id === connection.id);
+  if (idx >= 0) connections[idx] = connection;
+  else connections.push(connection);
+  persistConnections(connections);
+  return connections;
+};
+
+export const removeConnection = (connectionId) => {
+  const connections = getConnections().filter((c) => c.id !== connectionId);
+  persistConnections(connections);
+  return connections;
+};
+
+const persistConnections = (connections) => {
+  const profileId = getActiveProfileId();
+  if (!profileId) return;
+  const key = profileId === 'default' ? CONNECTIONS_KEY : `${CONNECTIONS_KEY}_${profileId}`;
+  localStorage.setItem(key, JSON.stringify(connections));
+  syncToServer(`/connections/${profileId}`, connections);
+};
+
+// ── Connection Stats Refresh ─────────────────────────────────────────
+// Fetches live stats from the server-side proxy for a single connection.
+export const fetchConnectionStats = async (connectionId) => {
+  const profileId = getActiveProfileId();
+  if (!profileId) return null;
+
+  try {
+    const res = await fetch(`${API_BASE}/connections/${profileId}/${connectionId}/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to refresh');
+
+    // Update local state with fetched stats
+    const connections = getConnections();
+    const conn = connections.find(c => c.id === connectionId);
+    if (conn) {
+      conn.stats = data.stats;
+      conn.lastFetched = data.lastFetched;
+      conn.fetchError = null;
+      persistConnections(connections);
+    }
+    return data.stats;
+  } catch (err) {
+    // Mark the connection with the error
+    const connections = getConnections();
+    const conn = connections.find(c => c.id === connectionId);
+    if (conn) {
+      conn.fetchError = err.message;
+      conn.lastFetched = Date.now();
+      persistConnections(connections);
+    }
+    return null;
+  }
+};
+
+// Refresh all connections that support auto-fetch (github, huggingface, reddit)
+// Skips connections refreshed within the last 30 minutes.
+export const refreshAllConnections = async () => {
+  const connections = getConnections();
+  const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+  const now = Date.now();
+
+  const needsRefresh = connections.filter(c => {
+    if (c.platform !== 'github' && c.platform !== 'huggingface' && c.platform !== 'reddit') return false;
+    if (!c.meta?.url && !c.meta?.username) return false;
+    if (c.lastFetched && (now - c.lastFetched) < REFRESH_INTERVAL) return false;
+    return true;
+  });
+
+  if (needsRefresh.length === 0) return;
+
+  await Promise.allSettled(
+    needsRefresh.map(c => fetchConnectionStats(c.id))
+  );
+};
+
+export const createConnection = (platform, label, stats, meta = {}) => ({
+  id: `conn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+  platform,
+  label,
+  stats,
+  meta,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+});
 
 // ── Momentum ─────────────────────────────────────────────────────────
 export const calculateMomentum = (streak) => {

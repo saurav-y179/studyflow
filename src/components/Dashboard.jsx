@@ -2,28 +2,35 @@ import { motion } from 'framer-motion';
 import { TrendingUp, Clock, Target } from 'lucide-react';
 import { isDayComplete } from '../utils/storage';
 
-export const Dashboard = ({ entries, streak }) => {
+export const Dashboard = ({ entries, streak, dailyGoal = 4 }) => {
   const activeDays = entries.filter((e) => e.todayTasks && e.todayTasks.length > 0).length;
   const completeDays = entries.filter((e) => isDayComplete(e)).length;
   const completionRate = activeDays > 0 ? Math.round((completeDays / activeDays) * 100) : 0;
 
-  // Calculate focus time (mock: 45m per completed task across all time, but we just need a display for "this week")
-  // For the sake of the prompt "0h 45m", let's calculate based on the current week.
+  // Calculate focus time based on proper week boundaries (Mon-Sun)
   const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const startOfThisWeek = new Date(today);
+  startOfThisWeek.setDate(today.getDate() + mondayOffset);
+  startOfThisWeek.setHours(0, 0, 0, 0);
+
+  const startOfLastWeek = new Date(startOfThisWeek);
+  startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+
+  const endOfThisWeek = new Date(startOfThisWeek);
+  endOfThisWeek.setDate(startOfThisWeek.getDate() + 7);
+
   let totalTasksCompletedThisWeek = 0;
   let totalTasksCompletedLastWeek = 0;
 
   entries.forEach(e => {
-    const d = new Date(e.date);
-    const diff = Math.floor((today - d) / (1000 * 60 * 60 * 24));
+    const d = new Date(e.date + 'T00:00:00');
     const completedCount = e.todayTasks?.filter(t => t.completed).length || 0;
-    
-    if (diff <= 7) {
+
+    if (d >= startOfThisWeek && d < endOfThisWeek) {
       totalTasksCompletedThisWeek += completedCount;
-    } else if (diff > 7 && diff <= 14) {
+    } else if (d >= startOfLastWeek && d < startOfThisWeek) {
       totalTasksCompletedLastWeek += completedCount;
     }
   });
@@ -41,8 +48,7 @@ export const Dashboard = ({ entries, streak }) => {
 
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
-  // If no goal set, just use a default 10 hour goal (600 mins)
-  const goalMinutes = 600;
+  const goalMinutes = dailyGoal * 60;
   const percent = Math.min((totalMinutes / goalMinutes) * 100, 100);
   const offset = circumference - (percent / 100) * circumference;
 
@@ -59,33 +65,33 @@ export const Dashboard = ({ entries, streak }) => {
           <motion.div
             key={i}
             whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', borderColor: 'rgba(255,255,255,0.1)' }}
-            className="bg-[#151A23]/70 backdrop-blur-[16px] border border-white/5 rounded-[20px] p-5 flex items-center gap-4 transition-all duration-300"
+            className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[20px] p-5 flex items-center gap-4 transition-all duration-300"
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${stat.color}15`, color: stat.color }}>
               <stat.icon className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[24px] font-bold text-[#E9EDF2] tracking-tight leading-none mb-1">{stat.value}</p>
-              <p className="text-[13px] text-[#8B95A5]">{stat.label}</p>
+              <p className="text-h1 font-bold text-[var(--text-bright)] tracking-tight leading-none mb-1">{stat.value}</p>
+              <p className="text-[13px] text-[var(--text-muted)]">{stat.label}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
       {/* Productivity Overview */}
-      <div className="bg-[#151A23]/70 backdrop-blur-[16px] border border-white/5 rounded-[20px] p-6 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/10 transition-all duration-300">
+      <div className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[20px] p-6 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-[var(--card-border-10)] transition-all duration-300">
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           
           <div className="flex items-center gap-6">
             <div className="relative flex items-center justify-center w-[120px] h-[120px]">
               <svg width="120" height="120" className="-rotate-90">
-                <circle cx="60" cy="60" r={radius} fill="none" stroke="#1E2530" strokeWidth="8" />
+                <circle cx="60" cy="60" r={radius} fill="none" stroke="var(--card-alt)" strokeWidth="8" />
                 <motion.circle
                   cx="60"
                   cy="60"
                   r={radius}
                   fill="none"
-                  stroke="#2EE6D8"
+                  stroke="var(--accent)"
                   strokeWidth="8"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -95,13 +101,13 @@ export const Dashboard = ({ entries, streak }) => {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Target className="w-5 h-5 text-[#8B95A5] mb-1" />
+                <Target className="w-5 h-5 text-[var(--text-muted)] mb-1" />
               </div>
             </div>
 
             <div>
-              <p className="text-[14px] font-semibold uppercase tracking-[0.05em] text-[#8B95A5] mb-2">Total focus time this week</p>
-              <div className="text-[36px] font-bold text-[#E9EDF2] tracking-tight leading-none">
+              <p className="text-body font-semibold uppercase tracking-[0.05em] text-[var(--text-muted)] mb-2">Total focus time this week</p>
+              <div className="text-[36px] font-bold text-[var(--text-bright)] tracking-tight leading-none">
                 {hours}h {mins}m
               </div>
             </div>
@@ -121,15 +127,19 @@ export const Dashboard = ({ entries, streak }) => {
             )}
             
             {/* AI Insight Coach Card directly inside the Dashboard for immediate visibility */}
-            <div className="mt-2 bg-[#151A23]/80 border border-white/5 rounded-xl p-4 flex gap-4 max-w-[320px] relative overflow-hidden group">
+            <div className="mt-2 bg-[var(--card-bg-80)] border-[var(--card-border)] rounded-xl p-4 flex gap-4 max-w-[320px] relative overflow-hidden group">
               <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#2EE6D8] to-[#FFB443] group-hover:shadow-[0_0_15px_#2EE6D8] transition-shadow duration-500" />
               <div className="w-10 h-10 rounded-full bg-[#FFB443]/10 flex items-center justify-center flex-shrink-0">
                 <span className="text-xl">⚡</span>
               </div>
               <div>
-                <p className="text-[14px] text-[#E9EDF2] font-medium leading-tight mb-2">
-                  Great consistency! 🎉 You're {percentChange > 0 ? percentChange : 19}% more productive this week.
-                </p>
+              <p className="text-body text-[var(--text-bright)] font-medium leading-tight mb-2">
+                {percentChange > 0
+                  ? `Great consistency! You're ${percentChange}% more productive this week.`
+                  : percentChange < 0
+                  ? `You're down ${Math.abs(percentChange)}% this week. A small task can restart the rhythm.`
+                  : 'Complete one task today to start building momentum.'}
+              </p>
                 <button className="text-[13px] text-[#2EE6D8] hover:text-[#5FFBEF] font-semibold transition-colors">
                   See more insights →
                 </button>

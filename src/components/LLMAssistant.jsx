@@ -1,3 +1,7 @@
+// @deprecated Use ChatPanel from v3/components/ChatPanel instead.
+// LLMAssistant is preserved for backward compatibility with T1/T2 layouts.
+// ChatPanel supports 3 LLM modes (local/cloud/basic), settings, and history sync.
+
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, X } from 'lucide-react';
@@ -76,17 +80,17 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
   // If used in the old inline mode
   if (!isFloating) {
     return (
-      <div className="bg-[#151A23]/70 backdrop-blur-[16px] border border-white/5 rounded-[20px] overflow-hidden flex flex-col h-[500px]">
+      <div className="bg-[var(--card-bg-70)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[20px] overflow-hidden flex flex-col h-[500px]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#0B0E14]/40">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--card-border)] bg-[var(--card-surface-40)]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#FFB443]/20 flex items-center justify-center text-xl">
+            <div className="w-8 h-8 rounded-full bg-[var(--accent-alt)]/20 flex items-center justify-center text-xl">
               ⚡
             </div>
             <div>
-              <h3 className="text-[14px] font-bold text-[#E9EDF2]">Pikachu Coach</h3>
-              <p className="text-[11px] text-[#8B95A5] flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+              <h3 className="text-body font-bold text-[var(--text-bright)]">Pikachu Coach</h3>
+              <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-alt-2)] animate-pulse" />
                 Online
               </p>
             </div>
@@ -103,10 +107,10 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] p-3 text-[14px] leading-relaxed shadow-sm ${
+                className={`max-w-[85%] p-3 text-body leading-relaxed shadow-sm ${
                   msg.role === 'user'
-                    ? 'bg-[#2EE6D8] text-[#0B0E14] rounded-2xl rounded-tr-sm font-medium'
-                    : 'bg-white/5 text-[#E9EDF2] border border-white/5 rounded-2xl rounded-tl-sm'
+                    ? 'bg-[var(--accent)] text-[var(--card-surface)] rounded-2xl rounded-tr-sm font-medium'
+                    : 'bg-[var(--input-bg)] text-[var(--text-bright)] border-[var(--card-border)] rounded-2xl rounded-tl-sm'
                 }`}
               >
                 {msg.content}
@@ -115,7 +119,7 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
           ))}
           {isLoading && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-              <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm p-3 flex gap-1.5">
+              <div className="bg-[var(--input-bg)] border-[var(--card-border)] rounded-2xl rounded-tl-sm p-3 flex gap-1.5">
                 <motion.div className="w-1.5 h-1.5 bg-[#8B95A5] rounded-full" animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6 }} />
                 <motion.div className="w-1.5 h-1.5 bg-[#8B95A5] rounded-full" animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} />
                 <motion.div className="w-1.5 h-1.5 bg-[#8B95A5] rounded-full" animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} />
@@ -126,7 +130,7 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
         </div>
 
         {/* Input */}
-        <div className="p-3 bg-[#0B0E14]/40 border-t border-white/5">
+        <div className="p-3 bg-[var(--card-surface-40)] border-t border-[var(--card-border)]">
           <div className="flex items-center gap-2">
             <textarea
               value={input}
@@ -134,12 +138,12 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
               onKeyDown={handleKeyPress}
               placeholder="Ask Pikachu..."
               rows={1}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[14px] text-[#E9EDF2] placeholder:text-[#5B6574] focus:outline-none focus:border-[#FFB443] resize-none"
+              className="flex-1 bg-[var(--input-bg-10)] border-[var(--card-border-10)] rounded-xl px-3 py-2 text-body text-[var(--text-bright)] placeholder:text-[var(--text-muted2)] focus:outline-none focus:border-[var(--accent-alt)] resize-none"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              className="w-10 h-10 rounded-xl bg-[#FFB443] text-[#0B0E14] flex items-center justify-center hover:bg-[#ffbe60] transition-colors disabled:opacity-50"
+              className="w-10 h-10 rounded-xl bg-[var(--accent-alt)] text-[var(--card-surface)] flex items-center justify-center hover:bg-[var(--accent-alt)] transition-colors disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -151,23 +155,23 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
 
   // Floating variant for the FAB modal
   return (
-    <div className="flex flex-col h-full bg-[#151A23]/95 backdrop-blur-xl">
+    <div className="flex flex-col h-full bg-[var(--card-bg-95)] backdrop-blur-xl">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#0B0E14]/60">
+      <div className="flex items-center justify-between p-4 border-b border-[var(--card-border)] bg-[var(--card-surface-60)]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#FFB443]/20 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,180,67,0.3)]">
+          <div className="w-8 h-8 rounded-full bg-[var(--accent-alt)]/20 flex items-center justify-center text-xl shadow-[0_0_15px_var(--accent-alt-icon-shadow)]">
             ⚡
           </div>
           <div>
-            <h3 className="text-[14px] font-bold text-[#E9EDF2]">Pikachu Coach</h3>
-            <p className="text-[11px] text-[#8B95A5] flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+            <h3 className="text-body font-bold text-[var(--text-bright)]">Pikachu Coach</h3>
+            <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-alt-2)] animate-pulse" />
               Online
             </p>
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg text-[#8B95A5] transition-colors">
+          <button onClick={onClose} className="p-1.5 hover:bg-[var(--hover-bg)] rounded-lg text-[var(--text-muted)] transition-colors">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -183,10 +187,10 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] p-3 text-[14px] leading-relaxed shadow-sm ${
+              className={`max-w-[85%] p-3 text-body leading-relaxed shadow-sm ${
                 msg.role === 'user'
-                  ? 'bg-[#2EE6D8] text-[#0B0E14] rounded-2xl rounded-tr-sm font-medium'
-                  : 'bg-white/5 text-[#E9EDF2] border border-white/5 rounded-2xl rounded-tl-sm'
+                  ? 'bg-[var(--accent)] text-[var(--card-surface)] rounded-2xl rounded-tr-sm font-medium'
+                  : 'bg-[var(--input-bg)] text-[var(--text-bright)] border-[var(--card-border)] rounded-2xl rounded-tl-sm'
               }`}
             >
               {msg.content}
@@ -195,7 +199,7 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
         ))}
         {isLoading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm p-3 flex gap-1.5">
+            <div className="bg-[var(--input-bg)] border-[var(--card-border)] rounded-2xl rounded-tl-sm p-3 flex gap-1.5">
               <motion.div className="w-1.5 h-1.5 bg-[#8B95A5] rounded-full" animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6 }} />
               <motion.div className="w-1.5 h-1.5 bg-[#8B95A5] rounded-full" animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} />
               <motion.div className="w-1.5 h-1.5 bg-[#8B95A5] rounded-full" animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} />
@@ -206,7 +210,7 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
       </div>
 
       {/* Input */}
-      <div className="p-3 bg-[#0B0E14]/60 border-t border-white/5">
+      <div className="p-3 bg-[var(--card-surface-60)] border-t border-[var(--card-border)]">
         <div className="flex items-center gap-2">
           <textarea
             value={input}
@@ -214,12 +218,12 @@ export const LLMAssistant = ({ entries, streak, isFloating, onClose }) => {
             onKeyDown={handleKeyPress}
             placeholder="Ask Pikachu..."
             rows={1}
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[14px] text-[#E9EDF2] placeholder:text-[#5B6574] focus:outline-none focus:border-[#FFB443] resize-none"
+            className="flex-1 bg-[var(--input-bg-10)] border-[var(--card-border-10)] rounded-xl px-3 py-2 text-body text-[var(--text-bright)] placeholder:text-[var(--text-muted2)] focus:outline-none focus:border-[var(--accent-alt)] resize-none"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="w-10 h-10 rounded-xl bg-[#FFB443] text-[#0B0E14] flex items-center justify-center hover:bg-[#ffbe60] transition-colors disabled:opacity-50"
+            className="w-10 h-10 rounded-xl bg-[var(--accent-alt)] text-[var(--card-surface)] flex items-center justify-center hover:bg-[var(--accent-alt)] transition-colors disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
           </button>
