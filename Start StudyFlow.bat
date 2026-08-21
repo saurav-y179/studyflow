@@ -11,7 +11,7 @@ echo Keep this window open while using the app.
 echo Press Ctrl+C to stop StudyFlow.
 echo.
 
-npm run dev
+node dev.js
 
 echo.
 echo StudyFlow has stopped.

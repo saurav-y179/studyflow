@@ -21,54 +21,56 @@ const safeKill = (pid) => {
   } catch { /* process may have already exited */ }
 };
 
-const waitForPort = (port, maxWaitMs = 30000) => new Promise((resolve) => {
+const waitForPort = (port, path = '/', maxWaitMs = 30000) => new Promise((resolve) => {
   const start = Date.now();
   const check = () => {
-    const req = http.get(`http://localhost:${port}/api/health`, (res) => {
-      if (res.statusCode === 200) return resolve(true);
+    const req = http.get(`http://localhost:${port}${path}`, (res) => {
+      if (res.statusCode < 500) return resolve(true);
       retry();
     });
     req.on('error', retry);
-    req.setTimeout(2000, () => { req.destroy(); retry(); });
+    req.setTimeout(800, () => { req.destroy(); retry(); });
 
     function retry() {
       if (Date.now() - start >= maxWaitMs) return resolve(false);
-      setTimeout(check, 300);
+      setTimeout(check, 150);
     }
   };
   check();
 });
 
+// Resolve the local Vite binary so we skip the npx resolution layer.
+const viteBin = path.join(__dirname, 'node_modules', 'vite', 'bin', 'vite.js');
+
 const run = async () => {
-  const server = spawn('node', ['server.js'], {
+  // Spawn both servers concurrently — Vite is the slower one to boot and
+  // the frontend works even while the API is still coming up, so waiting
+  // for API health before spawning Vite only delays startup.
+  const server = spawn(process.execPath, ['server.js'], {
     cwd: __dirname,
     stdio: 'inherit',
-    shell: isWindows,
   });
   pids.push(server.pid);
 
   server.on('exit', (code) => {
-    process.exit(code);
+    process.exit(code ?? 0);
   });
 
-  const apiReady = await waitForPort(API_PORT);
-  if (!apiReady) {
-    console.error('Express API server failed to start.');
-    process.exit(1);
-  }
-  console.log(`Express API ready on :${API_PORT}`);
-
-  const vite = spawn('npx', ['vite', '--port', String(VITE_PORT)], {
+  const vite = spawn(process.execPath, [viteBin, '--port', String(VITE_PORT)], {
     cwd: __dirname,
     stdio: 'inherit',
-    shell: isWindows,
   });
   pids.push(vite.pid);
 
   vite.on('close', (code) => {
-    server.kill();
-    process.exit(code);
+    safeKill(server.pid);
+    process.exit(code ?? 0);
   });
+
+  const apiReady = await waitForPort(API_PORT, '/api/health');
+  console.log(apiReady
+    ? `Express API ready on :${API_PORT}`
+    : `Express API not responding yet on :${API_PORT}`);
 };
 
 run();
