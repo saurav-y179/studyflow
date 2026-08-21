@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Canvas } from '@react-three/fiber';
 import { useStudyFlow } from '../hooks/useStudyFlow';
 import { logout } from '../utils/storage';
 import { AuthModals } from '../components/layout/AuthModals';
@@ -147,11 +146,9 @@ function AppV3({ currentVersion, onSwitchVersion }) {
 
   return (
     <div className="min-h-screen bg-[#040814]">
-      {/* Background Video + 3D Starfield */}
+      {/* Background Video + Starfield */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[#040510]">
-        <Canvas camera={{ position: [0, 0, 5] }} style={{ position: 'absolute', inset: 0, opacity: shouldReduceMotion ? 0.2 : 0.4 }} className="pointer-events-none">
-          <Starfield reducedMotion={shouldReduceMotion} />
-        </Canvas>
+        <Starfield reducedMotion={shouldReduceMotion} />
         <video
           className="absolute inset-0 w-full h-full object-cover opacity-30 filter brightness-75 saturate-125"
           src="https://cdn.pixabay.com/video/2022/06/21/121261-724696832_large.mp4"

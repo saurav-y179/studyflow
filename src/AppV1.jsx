@@ -335,7 +335,7 @@ function AppV1({ onSwitchVersion }) {
         </div>
       )}
 
-      <style>{`
+      <style>{String.raw`
         @keyframes pulse-blue {
           0% { box-shadow: 0 0 0 0 rgba(0,51,255,0.3); }
           70% { box-shadow: 0 0 0 12px rgba(0,51,255,0); }

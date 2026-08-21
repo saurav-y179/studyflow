@@ -1,7 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, X, Settings, ArrowLeft, FileText, Trash2, AlertTriangle } from 'lucide-react';
-import { getMiniBrainResponse } from '../utils/pikachuBrain';
+
+// Lazy-load the ~245KB offline brain module only when first needed,
+// so it never lands in the main bundle.
+let miniBrainPromise = null;
+const loadMiniBrain = () => {
+  if (!miniBrainPromise) {
+    miniBrainPromise = import('../utils/pikachuBrain').then((m) => m.getMiniBrainResponse);
+  }
+  return miniBrainPromise;
+};
 
 export const ChatPanel = ({ isOpen, onClose, entries, streak, sidebarWidth = 200, user, connections }) => {
   const panelTransition = { type: 'spring', stiffness: 420, damping: 34, mass: 0.75 };
@@ -148,6 +157,7 @@ ${recentEntries.map((e) => {
     try {
       if (llmMode === 'basic') {
         await new Promise(r => setTimeout(r, 600));
+        const getMiniBrainResponse = await loadMiniBrain();
         return { text: getMiniBrainResponse(userMessage, todayPct, currentStreak), isFallback: false };
       }
 
@@ -215,6 +225,7 @@ ${recentEntries.map((e) => {
       return { text: fullText.trim(), isFallback: false };
     } catch (error) {
       console.error('LLM error, falling back to Mini-Brain:', error);
+      const getMiniBrainResponse = await loadMiniBrain();
       return { text: getMiniBrainResponse(userMessage, todayPct, currentStreak), isFallback: true };
     }
   };
@@ -585,7 +596,6 @@ ${recentEntries.map((e) => {
                         setInput(suggestion);
                         setTimeout(() => {
                           setInput('');
-                          const fakeEvent = { key: 'Enter', shiftKey: false, preventDefault: () => {} };
                           // Directly call handleSend with the suggestion
                           setMessages((prev) => [...prev, { role: 'user', content: suggestion }, { role: 'assistant', content: '', isStreaming: true }]);
                           setIsLoading(true);

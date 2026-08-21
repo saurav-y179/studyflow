@@ -357,6 +357,8 @@ This release bundle is meant for normal users. It includes the built `dist/` fro
 | `npm run preview` | Previews the production frontend build locally. |
 | `npm start` | Starts the Express server. |
 | `npm run lint` | Runs ESLint on the project. |
+| `npm test` | Runs the Vitest test suite once. |
+| `npm run test:watch` | Runs Vitest in watch mode. |
 
 ## Project Structure
 
@@ -373,7 +375,6 @@ This release bundle is meant for normal users. It includes the built `dist/` fro
 +-- public/                   Static assets and AI setup docs
 +-- src/
 |   +-- main.jsx              React entry point and version selection
-|   +-- App.jsx               T1 layout
 |   +-- AppV1.jsx             T2 layout
 |   +-- v3/                   T3 dashboard layout and components
 |   +-- components/           Shared components
@@ -430,7 +431,7 @@ Check the assistant settings:
 - Framer Motion
 - Lucide React
 - date-fns
-- Three.js / React Three Fiber
+- Vitest
 
 ## Notes For Deployment
 
