@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Target, TrendingUp, Sparkles } from 'lucide-react';
+import { Target, Sparkles } from 'lucide-react';
 
 const GREETINGS = {
   morning:   { text: 'Good Morning', sub: 'Early start — winners build momentum first thing.', icon: '☀️' },
@@ -43,9 +43,9 @@ export const GreetingBanner = ({ user, entries, streak }) => {
     return { completed, total, pct };
   }, [entries]);
 
-  const tip = useMemo(() => {
-    return MOTIVATIONAL_TIPS[Math.floor(Math.random() * MOTIVATIONAL_TIPS.length)];
-  }, []);
+  // Deterministic "tip of the day" — rotates daily
+  const dayIndex = Math.floor(new Date().getTime() / 86400000);
+  const tip = MOTIVATIONAL_TIPS[dayIndex % MOTIVATIONAL_TIPS.length];
 
   return (
     <motion.div

@@ -130,14 +130,6 @@ export const ActivityHeatmap = ({ entries }) => {
           </span>
         </div>
 
-        {/* Streak milestone celebration */}
-        {[30, 21, 14, 7].map(milestone => {
-          const currentStreak = entries.reduce((streak, _, idx) => {
-            // Simple check: just use the prop data from weeklyData
-            return streak;
-          }, 0);
-          return null;
-        }).filter(Boolean)}
         {entries.length > 0 && (() => {
           // Calculate streak for milestone display
           const completeDates = new Set();

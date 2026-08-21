@@ -237,13 +237,6 @@ const ConnectionCard = ({ conn, color, onRefresh, onEdit, onRemove }) => {
   const statsConfig = PLATFORM_STATS_CONFIG[conn.platform] || [];
   const isRefreshing = conn._refreshing;
 
-  const formatNumber = (n) => {
-    if (n == null) return '—';
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toLocaleString();
-  };
-
   return (
     <motion.div
       layout

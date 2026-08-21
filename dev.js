@@ -18,7 +18,7 @@ const safeKill = (pid) => {
     } else {
       process.kill(pid, 'SIGTERM');
     }
-  } catch {}
+  } catch { /* process may have already exited */ }
 };
 
 const waitForPort = (port, maxWaitMs = 30000) => new Promise((resolve) => {

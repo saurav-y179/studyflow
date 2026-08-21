@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Clock, GripVertical } from 'lucide-react';
+import { Plus, X, GripVertical } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import {
   getTomorrowEntry,

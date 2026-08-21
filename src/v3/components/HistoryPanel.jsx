@@ -45,15 +45,15 @@ export const HistoryPanel = ({ entries }) => {
   };
 
   // Group entries by date proximity for visual grouping
-  const groupedEntries = useMemo(() => {
-    let lastDateGroup = null;
-    return sortedEntries.map((entry) => {
-      const dateLabel = getDateLabel(entry.date);
-      const showDateGroup = dateLabel !== lastDateGroup;
-      lastDateGroup = dateLabel;
-      return { ...entry, dateLabel, showDateGroup };
-    });
-  }, [sortedEntries]);
+  const groupedEntries = useMemo(
+    () =>
+      sortedEntries.map((entry, i) => {
+        const dateLabel = getDateLabel(entry.date);
+        const prevLabel = i > 0 ? getDateLabel(sortedEntries[i - 1].date) : null;
+        return { ...entry, dateLabel, showDateGroup: dateLabel !== prevLabel };
+      }),
+    [sortedEntries]
+  );
 
   return (
     <motion.div
