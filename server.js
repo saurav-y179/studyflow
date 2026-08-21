@@ -36,13 +36,14 @@ const rateLimit = (req, res, next) => {
   next();
 };
 
-// Periodically clean up expired entries
-setInterval(() => {
+// Periodically clean up expired entries (unref'd so it never blocks exit)
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of rateLimitStore) {
     if (now - entry.start > RATE_LIMIT_WINDOW) rateLimitStore.delete(ip);
   }
 }, RATE_LIMIT_WINDOW);
+cleanupTimer.unref();
 
 // ── Middleware ─────────────────────────────────────────────────────────
 app.use((req, res, next) => {
@@ -57,7 +58,11 @@ app.use(rateLimit);
 const requireAuth = (req, res, next) => {
   if (!API_KEY) return next(); // no key configured = open (dev mode)
   const provided = req.headers['x-api-key'] || req.query.apiKey;
-  if (!provided || !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(API_KEY))) {
+  // Length must match before timingSafeEqual, which throws on length mismatch
+  const providedBuf = Buffer.from(String(provided || ''));
+  const apiKeyBuf = Buffer.from(API_KEY);
+  const isAuthorized = providedBuf.length === apiKeyBuf.length && crypto.timingSafeEqual(providedBuf, apiKeyBuf);
+  if (!isAuthorized) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
@@ -485,8 +490,16 @@ if (fs.existsSync(distPath)) {
 }
 
 // ── Start ─────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🚀 StudyFlow API server running on http://localhost:${PORT}`);
-  console.log(`📂 Data stored in: ${DATA_DIR}`);
-  console.log(`💡 Health check: http://localhost:${PORT}/api/health\n`);
-});
+// Only auto-start when run directly (node server.js); tests import the app.
+import { pathToFileURL } from 'url';
+const isMainModule = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+export default app;
+
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`\n🚀 StudyFlow API server running on http://localhost:${PORT}`);
+    console.log(`📂 Data stored in: ${DATA_DIR}`);
+    console.log(`💡 Health check: http://localhost:${PORT}/api/health\n`);
+  });
+}
