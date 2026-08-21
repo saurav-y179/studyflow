@@ -40,26 +40,105 @@ const apiGet = async (endpoint) => {
   return null;
 };
 
-const apiPost = async (endpoint, data) => {
+// ── Pending-sync queue ────────────────────────────────────────────────
+// Writes that fail while the API server is unreachable are persisted to
+// localStorage and retried automatically, so local edits are never
+// silently dropped from the server copy.
+const PENDING_SYNC_KEY = 'studyflow_pending_sync';
+const MAX_PENDING_OPS = 25;
+
+const loadPendingSync = () => {
   try {
-    await fetch(`${API_BASE}${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-  } catch (err) {
-    console.warn(`API POST ${endpoint} failed:`, err);
+    return JSON.parse(localStorage.getItem(PENDING_SYNC_KEY) || '[]');
+  } catch {
+    return [];
   }
 };
 
-// Fire-and-forget background sync (doesn't block the UI)
-const syncToServer = (endpoint, data) => {
-  apiPost(endpoint, data).catch(() => {});
+const persistPendingSync = (ops) => {
+  if (ops.length === 0) localStorage.removeItem(PENDING_SYNC_KEY);
+  else localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(ops));
 };
 
+// One serialized flush pass: posts everything currently queued. Failures
+// stay queued for the next triggered pass.
+const runFlushPass = async () => {
+  const ops = loadPendingSync();
+  if (ops.length === 0) return;
+
+  // Force a fresh availability probe: a previous "down" verdict may be
+  // stale, and this is the retry path.
+  _serverAvailable = null;
+  _lastServerCheck = 0;
+  if (!(await checkServer())) return;
+
+  const remaining = [];
+  for (const op of ops) {
+    try {
+      const res = await fetch(`${API_BASE}${op.endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(op.data),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) remaining.push(op);
+    } catch {
+      remaining.push(op);
+    }
+  }
+  persistPendingSync(remaining);
+};
+
+// Flush requests serialize behind any in-flight pass so a retry request
+// is never swallowed by one that's mid-failure.
+let _flushChain = Promise.resolve();
+
+// Attempts every queued write once; safe to call repeatedly.
+export const flushPendingSync = async () => {
+  const pass = _flushChain.then(runFlushPass, runFlushPass);
+  _flushChain = pass.catch(() => {});
+  return pass;
+};
+
+// Enqueues a full-snapshot write. Ops for the same endpoint coalesce
+// (latest snapshot wins), which also eliminates out-of-order races.
+const syncToServer = (endpoint, data) => {
+  const ops = loadPendingSync().filter((op) => op.endpoint !== endpoint);
+  ops.push({ endpoint, data, queuedAt: Date.now() });
+  persistPendingSync(ops.slice(-MAX_PENDING_OPS));
+  flushPendingSync();
+};
+
+const pushToServer = async (endpoint, data) => {
+  syncToServer(endpoint, data);
+  await flushPendingSync();
+};
+
+// ── Entry reconciliation ──────────────────────────────────────────────
+// Per-date merge where the entry with the newest timestamp wins. Local
+// edits win ties, since that is what the user is currently looking at.
+export const mergeEntries = (localEntries = [], serverEntries = []) => {
+  const byDate = new Map();
+  for (const entry of serverEntries) {
+    if (entry?.date) byDate.set(entry.date, entry);
+  }
+  for (const entry of localEntries) {
+    if (!entry?.date) continue;
+    const existing = byDate.get(entry.date);
+    if (!existing || (entry.timestamp || 0) >= (existing.timestamp || 0)) {
+      byDate.set(entry.date, entry);
+    }
+  }
+  return [...byDate.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+
+const entriesSignature = (entries) =>
+  entries.map((e) => `${e.date}:${e.timestamp || 0}`).sort().join('|');
+
 // ── Initial sync from server ──────────────────────────────────────────
-// Called once on app startup to pull file-based data into localStorage.
-// Only pulls from server if localStorage is empty (first run or cleared).
+// Called once on app startup to reconcile file-based data into
+// localStorage. Local-only changes made while offline are preserved and
+// pushed back, so neither side ever clobbers fresher work.
 export const syncFromServer = async () => {
   const isAvailable = await checkServer();
   if (!isAvailable) return false;
@@ -84,19 +163,35 @@ export const syncFromServer = async () => {
       }
     }
 
-    // Always pull entries for the currently active profile (no conflict since entries are date-based)
+    // Reconcile (not overwrite) entries/promoted for the active profile
     const activeId = localStorage.getItem('studyflow_active_profile');
     if (activeId) {
-      const entries = await apiGet(`/entries/${activeId}`);
-      if (entries && Array.isArray(entries)) {
-        localStorage.setItem(getKeyForId(STORAGE_KEYS.ENTRIES, activeId), JSON.stringify(entries));
+      const entryKey = getKeyForId(STORAGE_KEYS.ENTRIES, activeId);
+      const promotedKey = getKeyForId(STORAGE_KEYS.PROMOTED, activeId);
+
+      const [serverEntries, serverPromoted] = await Promise.all([
+        apiGet(`/entries/${activeId}`),
+        apiGet(`/promoted/${activeId}`),
+      ]);
+
+      if (serverEntries && Array.isArray(serverEntries)) {
+        const localEntries = JSON.parse(localStorage.getItem(entryKey) || '[]');
+        const merged = mergeEntries(localEntries, serverEntries);
+        localStorage.setItem(entryKey, JSON.stringify(merged));
+        if (entriesSignature(merged) !== entriesSignature(serverEntries)) {
+          syncToServer(`/entries/${activeId}`, merged);
+        }
       }
 
-      const promoted = await apiGet(`/promoted/${activeId}`);
-      if (promoted && Array.isArray(promoted)) {
-        localStorage.setItem(getKeyForId(STORAGE_KEYS.PROMOTED, activeId), JSON.stringify(promoted));
+      if (serverPromoted && Array.isArray(serverPromoted)) {
+        const localPromoted = JSON.parse(localStorage.getItem(promotedKey) || '[]');
+        const mergedPromoted = [...new Set([...localPromoted, ...serverPromoted])].slice(-7);
+        localStorage.setItem(promotedKey, JSON.stringify(mergedPromoted));
       }
     }
+
+    // Retry anything that failed to sync previously (e.g. offline session)
+    await flushPendingSync();
 
     return true;
   } catch {
@@ -129,22 +224,33 @@ export const getActiveProfileId = () => {
   return localStorage.getItem('studyflow_active_profile');
 };
 
-export const switchProfile = (profileId) => {
+export const switchProfile = async (profileId) => {
   localStorage.setItem('studyflow_active_profile', profileId);
   syncToServer('/active', { activeId: profileId });
 
-  // Also pull entries for the new profile from server
-  if (_serverAvailable) {
-    apiGet(`/entries/${profileId}`).then(entries => {
-      if (entries && Array.isArray(entries)) {
-        localStorage.setItem(getKeyForId(STORAGE_KEYS.ENTRIES, profileId), JSON.stringify(entries));
-      }
-    }).catch(() => {});
-    apiGet(`/promoted/${profileId}`).then(promoted => {
-      if (promoted && Array.isArray(promoted)) {
-        localStorage.setItem(getKeyForId(STORAGE_KEYS.PROMOTED, profileId), JSON.stringify(promoted));
-      }
-    }).catch(() => {});
+  // Pull this profile's data BEFORE returning so callers never render a
+  // previous profile's entries. Merge instead of overwrite so unsynced
+  // local edits survive.
+  if (!(await checkServer())) return;
+
+  const entryKey = getKeyForId(STORAGE_KEYS.ENTRIES, profileId);
+  const promotedKey = getKeyForId(STORAGE_KEYS.PROMOTED, profileId);
+
+  const [entries, promoted] = await Promise.all([
+    apiGet(`/entries/${profileId}`),
+    apiGet(`/promoted/${profileId}`),
+  ]);
+
+  if (entries && Array.isArray(entries)) {
+    const localEntries = JSON.parse(localStorage.getItem(entryKey) || '[]');
+    const merged = mergeEntries(localEntries, entries);
+    localStorage.setItem(entryKey, JSON.stringify(merged));
+  }
+
+  if (promoted && Array.isArray(promoted)) {
+    const localPromoted = JSON.parse(localStorage.getItem(promotedKey) || '[]');
+    const mergedPromoted = [...new Set([...localPromoted, ...promoted])].slice(-7);
+    localStorage.setItem(promotedKey, JSON.stringify(mergedPromoted));
   }
 };
 
@@ -194,10 +300,10 @@ export const saveUser = async (user) => {
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userToSave));
   }
 
-  // Sync to server - now waits for server to confirm (not fire-and-forget)
-  // This ensures data is saved before user closes the app
-  await apiPost('/profiles', userToSave);
-  await apiPost('/active', { activeId: userToSave.id });
+  // Sync to server - waits for the queue flush so data is saved before
+  // the user closes the app. If unreachable, it stays queued for retry.
+  await pushToServer('/profiles', userToSave);
+  await pushToServer('/active', { activeId: userToSave.id });
 };
 
 // ── Logout (safe — only clears session, not data) ────────────────────
@@ -458,7 +564,10 @@ export const isDayComplete = (entry, threshold = COMPLETION_THRESHOLD) => {
 // ── Streak calculation ───────────────────────────────────────────────
 export const calculateStreak = (entries) => {
   if (!entries?.length) return { current: 0, longest: 0 };
-  const completeDates = new Set(entries.filter(isDayComplete).map((e) => e.date));
+  // Wrap (not pass) isDayComplete: filter forwards (element, index, array),
+  // which would leak the index into isDayComplete's `threshold` parameter
+  // and corrupt streak math.
+  const completeDates = new Set(entries.filter((e) => isDayComplete(e)).map((e) => e.date));
   if (!completeDates.size) return { current: 0, longest: 0 };
 
   const sorted = [...completeDates].sort();

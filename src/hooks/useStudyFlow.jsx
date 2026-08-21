@@ -65,8 +65,8 @@ export const useStudyFlow = () => {
     setUser(updatedUser);
   }, []);
 
-  const switchActiveProfile = useCallback((profileId) => {
-    switchProfile(profileId);
+  const switchActiveProfile = useCallback(async (profileId) => {
+    await switchProfile(profileId);
     const userData = getUser();
     const entriesData = getEntries();
     setUser(userData);
