@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, LogOut, User as UserIcon, Download } from 'lucide-react';
 import { VersionSwitcher } from '../../components/VersionSwitcher';
+import { StreakMeter } from './StreakMeter';
 
 const exportData = () => {
   const data = {};
@@ -42,73 +43,15 @@ export const EnergyBar = ({ streak, onSettingsClick, onSwitchVersion, currentVer
   }, [showDropdown]);
 
   const currentStreakValue = streak?.current || 0;
-  const streakGoal = 30;
-  const pct = Math.min(Math.max((currentStreakValue / streakGoal) * 100, 0), 100);
 
   return (
     <div className="px-6 pt-4 pb-4">
-      <div className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[16px] flex items-center px-5 py-2.5 shadow-lg shadow-black/30 gap-4 relative z-50">
-        {/* 30-day streak progress meter — clean glass style */}
-        <div className="flex-1 relative flex items-center gap-3 min-w-[100px]">
-          <div className="flex-1 relative">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-overline" style={{ color: '#8B95A5', fontSize: '0.5625rem' }}>Streak Goal</span>
-              <span className="text-micro font-semibold" style={{ color: '#2EE6D8' }}>{currentStreakValue}<span style={{ color: '#5B6574' }}>/30</span></span>
-            </div>
-            <div
-              className="w-full rounded-full overflow-hidden relative"
-              style={{
-                height: '5px',
-                background: 'rgba(255,255,255,0.04)',
-              }}
-            >
-              <motion.div
-                className="h-full rounded-full relative"
-                style={{
-                  background: pct > 60
-                    ? 'linear-gradient(90deg, #2EE6D8, #FFB443)'
-                    : pct > 30
-                    ? 'linear-gradient(90deg, #2EE6D8, #1CC9B8)'
-                    : 'linear-gradient(90deg, #1CC9B8, #0FAF9E)',
-                  boxShadow: `0 0 12px ${
-                    pct > 60 ? 'rgba(46,230,216,0.3)' : pct > 30 ? 'rgba(46,230,216,0.25)' : 'rgba(15,175,158,0.2)'
-                  }`,
-                }}
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {pct > 5 && (
-                  <div
-                    className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
-                    style={{
-                      background: pct > 60 ? '#2EE6D8' : '#1CC9B8',
-                      boxShadow: `0 0 6px ${pct > 60 ? 'rgba(46,230,216,0.6)' : 'rgba(28,201,184,0.6)'}`,
-                    }}
-                  />
-                )}
-              </motion.div>
-
-              {/* Milestone markers */}
-              {[7, 14, 21, 30].map(milestone => {
-                const pos = (milestone / 30) * 100;
-                const reached = currentStreakValue >= milestone;
-                return (
-                  <div
-                    key={milestone}
-                    className="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full"
-                    style={{
-                      left: `${pos}%`,
-                      background: reached ? '#FFB443' : 'rgba(255,255,255,0.1)',
-                      boxShadow: reached ? '0 0 4px rgba(255,180,67,0.5)' : 'none',
-                    }}
-                    title={`${milestone} days`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
+      <div
+        className="rounded-[16px] flex items-center px-5 py-2.5 shadow-lg shadow-black/30 gap-4 relative z-50"
+        style={{ background: '#0A0F18', border: '1px solid #232E42' }}
+      >
+        {/* 30-day fluid streak meter */}
+        <StreakMeter streak={streak} />
 
         {/* ── Right-side controls ── */}
         <div className="flex items-center gap-4 flex-shrink-0 ml-2">

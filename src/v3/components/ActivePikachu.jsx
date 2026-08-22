@@ -2,98 +2,123 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 // ─── GlossyShine ──────────────────────────────────────────────────────────────
-// Premium sticker-shine effect with zero cursor lag.
-// Bypasses React state entirely for position updates — writes directly to the
-// DOM overlay element so the GPU composite happens every frame with no re-render.
-// Three gradient layers:
-//   1. Tight specular hot-spot  (the bright lens-flare core)
-//   2. Wide soft bloom halo     (the ambient illumination bleed)
-//   3. Warm Fresnel rim glow    (counter-glow on the opposite side, like backlighting)
-const GlossyShine = ({ containerRef }) => {
-  const overlayRef = useRef(null);
+// Sticker-gloss spotlight that eases toward the cursor instead of teleporting.
+// Two pre-built radial-gradient layers are positioned with `transform` only
+// (GPU-composited) inside one requestAnimationFrame loop — no per-event
+// background rebuilds, no CPU repaints, no React state churn.
+const GlossyShine = ({ containerRef, instant = false }) => {
+  const coreRef = useRef(null);
+  const bloomRef = useRef(null);
   const [visible, setVisible] = useState(false);
+  const pos = useRef({ x: 0.5, y: 0.5 });     // eased position (0..1 of box)
+  const target = useRef({ x: 0.5, y: 0.5 });  // raw cursor position
 
   useEffect(() => {
     const el = containerRef.current;
-    const overlay = overlayRef.current;
-    if (!el || !overlay) return;
+    if (!el) return undefined;
 
-    const buildGradient = (x, y) => {
-      // Fresnel counter-glow sits opposite the cursor
-      const rx = 100 - x;
-      const ry = 100 - y;
-      return `
-        radial-gradient(
-          circle 26px at ${x}% ${y}%,
-          rgba(255,255,255,0.95) 0%,
-          rgba(255,255,255,0.65) 20%,
-          rgba(255,255,255,0.18) 55%,
-          transparent 100%
-        ),
-        radial-gradient(
-          circle 72px at ${x}% ${y}%,
-          rgba(255,255,255,0.22) 0%,
-          rgba(255,255,255,0.08) 50%,
-          transparent 100%
-        ),
-        radial-gradient(
-          circle 60px at ${rx}% ${ry}%,
-          rgba(255,220,80,0.14) 0%,
-          rgba(255,180,60,0.06) 50%,
-          transparent 100%
-        )
-      `;
+    let raf = 0;
+    let rect = null;
+    let dirty = true;
+
+    const apply = () => {
+      const w = rect ? rect.width : 1;
+      const h = rect ? rect.height : 1;
+      const px = (pos.current.x - 0.5) * w;
+      const py = (pos.current.y - 0.5) * h;
+      const t = `translate(${px.toFixed(2)}px, ${py.toFixed(2)}px)`;
+      if (coreRef.current) coreRef.current.style.transform = t;
+      if (bloomRef.current) bloomRef.current.style.transform = t;
     };
 
-    const onMove = (e) => {
-      const rect = el.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      // Direct DOM write — no React re-render, no lag
-      overlay.style.background = buildGradient(x, y);
+    const loop = () => {
+      const k = instant ? 1 : 0.16;
+      const dx = target.current.x - pos.current.x;
+      const dy = target.current.y - pos.current.y;
+      if (Math.abs(dx) > 0.0004 || Math.abs(dy) > 0.0004 || dirty) {
+        pos.current.x += dx * k;
+        pos.current.y += dy * k;
+        apply();
+        dirty = false;
+      }
+      raf = requestAnimationFrame(loop);
     };
 
-    const onEnter = () => setVisible(true);
-    const onLeave = () => setVisible(false);
+    const startLoop = () => {
+      if (!raf) raf = requestAnimationFrame(loop);
+    };
+    const stopLoop = () => {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    };
+
+    const updateTarget = (e) => {
+      if (!rect) rect = el.getBoundingClientRect();
+      target.current.x = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+      target.current.y = Math.min(Math.max((e.clientY - rect.top) / rect.height, 0), 1);
+    };
+
+    const onMove = (e) => updateTarget(e);
+    const onEnter = (e) => {
+      rect = el.getBoundingClientRect();
+      updateTarget(e);
+      dirty = true;
+      setVisible(true);
+      startLoop();
+    };
+    const onLeave = () => {
+      setVisible(false);
+      stopLoop();
+    };
 
     el.addEventListener('mousemove', onMove);
     el.addEventListener('mouseenter', onEnter);
     el.addEventListener('mouseleave', onLeave);
     return () => {
+      stopLoop();
       el.removeEventListener('mousemove', onMove);
       el.removeEventListener('mouseenter', onEnter);
       el.removeEventListener('mouseleave', onLeave);
     };
-  }, [containerRef]);
+  }, [containerRef, instant]);
 
   return (
-    <div
-      ref={overlayRef}
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        zIndex: 10,
-        borderRadius: '8px',
-        opacity: visible ? 1 : 0,
-        transition: 'opacity 0.3s ease',
-        mixBlendMode: 'screen',
-        willChange: 'background, opacity',
-        // Initial gradient centred — replaced on first mousemove
-        background: buildGradientStatic(50, 50),
-      }}
-    />
+    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[8px]" style={{ zIndex: 10 }}>
+      <div
+        className="absolute inset-0"
+        style={{
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.35s ease',
+          mixBlendMode: 'screen',
+        }}
+      >
+        {/* Wide soft bloom */}
+        <div
+          ref={bloomRef}
+          className="absolute left-1/2 top-1/2"
+          style={{
+            width: '120px',
+            height: '120px',
+            marginLeft: '-60px',
+            marginTop: '-60px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, rgba(255,244,214,0.05) 45%, transparent 68%)',
+          }}
+        />
+        {/* Tight specular core */}
+        <div
+          ref={coreRef}
+          className="absolute left-1/2 top-1/2"
+          style={{
+            width: '36px',
+            height: '36px',
+            marginLeft: '-18px',
+            marginTop: '-18px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.16) 45%, transparent 70%)',
+          }}
+        />
+      </div>
+    </div>
   );
 };
-
-// Helper used only for the initial static render (before any mouse event)
-function buildGradientStatic(x, y) {
-  const rx = 100 - x;
-  const ry = 100 - y;
-  return `
-    radial-gradient(circle 26px at ${x}% ${y}%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.65) 20%, rgba(255,255,255,0.18) 55%, transparent 100%),
-    radial-gradient(circle 72px at ${x}% ${y}%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 50%, transparent 100%),
-    radial-gradient(circle 60px at ${rx}% ${ry}%, rgba(255,220,80,0.14) 0%, rgba(255,180,60,0.06) 50%, transparent 100%)
-  `;
-}
 
 // Ordered for natural motion: sit → wave → jump → turn → loop
 const POSES = [
@@ -194,8 +219,11 @@ export const ActivePikachu = ({ recentActivity }) => {
     <div className="relative mx-auto mb-2 flex flex-col items-center">
       <motion.div
         ref={shineContainerRef}
-        animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
-        transition={shouldReduceMotion ? {} : { y: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } }}
+        // Bob pauses while hovered so it never fights the hover pop
+        animate={shouldReduceMotion || isHovered ? { y: 0 } : { y: [0, -3, 0] }}
+        transition={shouldReduceMotion || isHovered
+          ? { duration: 0.3, ease: 'easeOut' }
+          : { y: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } }}
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -206,8 +234,8 @@ export const ActivePikachu = ({ recentActivity }) => {
         <div
           className="absolute inset-0 rounded-full transition-opacity duration-300"
           style={{
-            opacity: isHovered ? 0.7 : 0.35,
-            background: 'radial-gradient(ellipse at center, rgba(253,224,71,0.3) 0%, transparent 70%)',
+            opacity: isHovered ? 0.55 : 0.3,
+            background: 'radial-gradient(ellipse at center, rgba(253,224,71,0.28) 0%, transparent 70%)',
             filter: 'blur(14px)',
           }}
         />
@@ -217,9 +245,9 @@ export const ActivePikachu = ({ recentActivity }) => {
           <Spark key={i} {...s} />
         ))}
 
-        {/* Image crossfade */}
+        {/* Image crossfade (simultaneous dissolve — no blank-frame blink) */}
         <div className="relative w-full h-full flex items-center justify-center">
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             <motion.img
               key={currentIndex}
               src={POSES[currentIndex].src}
@@ -229,23 +257,20 @@ export const ActivePikachu = ({ recentActivity }) => {
               style={{
                 objectFit: 'contain',
                 filter: isHovered
-                  ? 'drop-shadow(0 4px 16px rgba(253,224,71,0.4)) brightness(1.1)'
+                  ? 'drop-shadow(0 4px 14px rgba(253,224,71,0.35)) brightness(1.08)'
                   : 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))',
-                transform: isHovered ? 'scale(1.07)' : 'scale(1)',
-                transition: 'filter 0.3s ease, transform 0.3s ease',
+                transition: 'filter 0.3s ease',
               }}
               initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.88 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.88 }}
-              transition={{
-                duration: shouldReduceMotion ? 0.15 : 0.2,
-                ease: 'easeOut',
-              }}
+              // Framer Motion solely owns transform — hover scale included
+              animate={{ opacity: 1, scale: isHovered && !shouldReduceMotion ? 1.06 : 1 }}
+              exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.92 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
             />
           </AnimatePresence>
 
           {/* Glossy sticker-shine spotlight */}
-          <GlossyShine containerRef={shineContainerRef} />
+          <GlossyShine containerRef={shineContainerRef} instant={shouldReduceMotion} />
         </div>
 
         {/* Floor glow */}

@@ -232,10 +232,10 @@ Common controls:
 
 - Streak meter: visual 30-day streak progress.
 - Settings button: edit profile information.
-- Version switcher: switch between `T1`, `T2`, and `T3` layouts.
+- Version switcher: switch between the `Pikachu Blue` and `Scandinavian` layouts.
 - Profile button: open profile menu and logout.
 
-The current default layout is `T3`.
+The current default layout is `Pikachu Blue`.
 
 ### 8. View Stats
 

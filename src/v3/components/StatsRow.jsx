@@ -128,20 +128,30 @@ export const StatsRow = ({ entries, streak }) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 px-4 sm:px-6 mb-6">
-      {stats.map((stat, i) => {
-        const accent = CARD_ACCENTS[i];
-        if (!accent) return null;
-        const Icon = accent.icon;
-        return (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', borderColor: `${accent.dotColor}22`, transition: { duration: 0.2 } }}
-            className="bg-[var(--card-bg)] backdrop-blur-[16px] border-[var(--card-border)] rounded-[18px] p-4"
-          >
+    <div className="px-4 sm:px-6 mb-6">
+      {/* Persistent solid tray around the stat islands — same on every page */}
+      <div
+        className="rounded-[22px] p-3"
+        style={{ background: '#070B12', border: '1px solid #2A3550' }}
+      >
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {stats.map((stat, i) => {
+            const accent = CARD_ACCENTS[i];
+            if (!accent) return null;
+            const Icon = accent.icon;
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                whileHover={{ y: -2, boxShadow: '0 8px 28px rgba(0,0,0,0.5)', borderColor: `${accent.dotColor}55`, transition: { duration: 0.2 } }}
+                className="rounded-[16px] p-4"
+                style={{
+                  background: '#0D1421',
+                  border: `1px solid ${accent.dotColor}33`,
+                }}
+              >
 
               <div className="flex items-center justify-between">
                 <div
@@ -208,9 +218,12 @@ export const StatsRow = ({ entries, streak }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)', borderColor: 'rgba(46,230,216,0.12)', transition: { duration: 0.2 } }}
-        className="bg-[var(--card-bg)] backdrop-blur-[16px] rounded-[18px] p-4 sm:col-span-1 lg:col-span-1 relative overflow-hidden"
-        style={{ border: '1px solid rgba(46,230,216,0.1)' }}
+        whileHover={{ y: -2, boxShadow: '0 8px 28px rgba(0,0,0,0.5)', borderColor: 'rgba(46,230,216,0.4)', transition: { duration: 0.2 } }}
+        className="rounded-[16px] p-4 sm:col-span-1 lg:col-span-1 relative overflow-hidden"
+        style={{
+          background: '#0D1421',
+          border: '1px solid rgba(46,230,216,0.33)',
+        }}
       >
           {/* Animated gradient accent */}
           <div className="absolute top-0 left-0 right-0 h-[2px]" style={{
@@ -246,6 +259,8 @@ export const StatsRow = ({ entries, streak }) => {
             {thisWeekComplete > 0 ? `${thisWeekComplete} complete day${thisWeekComplete === 1 ? '' : 's'} this week` : 'Complete one task today'}
           </p>
       </motion.div>
+        </div>
+      </div>
     </div>
   );
 };

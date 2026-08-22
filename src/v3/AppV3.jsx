@@ -146,17 +146,9 @@ function AppV3({ currentVersion, onSwitchVersion }) {
 
   return (
     <div className="min-h-screen bg-[#040814]">
-      {/* Background Video + Starfield */}
+      {/* Background Starfield + ambient glows */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[#040510]">
         <Starfield reducedMotion={shouldReduceMotion} />
-        <video
-          className="absolute inset-0 w-full h-full object-cover opacity-30 filter brightness-75 saturate-125"
-          src="https://cdn.pixabay.com/video/2022/06/21/121261-724696832_large.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#040510_80%)] opacity-80" />
         <div className="absolute top-0 left-[200px] right-0 h-[400px] bg-gradient-to-b from-[#152ad1]/10 to-transparent mix-blend-screen" />
         <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-[#152ad1]/5 rounded-full blur-[150px] mix-blend-screen" />
@@ -313,34 +305,34 @@ function AppV3({ currentVersion, onSwitchVersion }) {
 
           </div>
 
-          {/* Status Strip — subtle glass */}
+          {/* Status Strip — solid red */}
           <div
             className="fixed bottom-0 right-0 z-50 flex items-center gap-2 sm:gap-3 px-4 sm:px-6 transition-[left] duration-300 h-9 will-change-[left]"
             style={{
               left: `${SIDEBAR_WIDTH}px`,
-              background: 'rgba(11,14,20,0.85)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              borderTop: '1px solid rgba(46,230,216,0.08)',
+              background: '#EE3448',
             }}
           >
             <span className="relative flex w-1.5 h-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50" style={{ background: '#2EE6D8' }} />
-              <span className="relative inline-flex rounded-full w-1.5 h-1.5" style={{ background: '#2EE6D8' }} />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50" style={{ background: '#2A060C' }} />
+              <span className="relative inline-flex rounded-full w-1.5 h-1.5" style={{ background: '#2A060C' }} />
             </span>
-            <span className="text-overline font-mono hidden sm:inline" style={{ color: '#5B6574', fontSize: '0.5625rem' }}>
+            <span className="text-overline font-mono hidden sm:inline" style={{ color: '#2A060C', fontSize: '0.5625rem' }}>
               Active
             </span>
-            <span className="hidden sm:inline" style={{ color: 'rgba(91,101,116,0.4)' }}>·</span>
-            <span className="text-overline font-mono font-bold" style={{ color: '#2EE6D8', fontSize: '0.5625rem' }}>
+            <span className="hidden sm:inline" style={{ color: 'rgba(42,6,12,0.5)' }}>·</span>
+            <span
+              className="text-overline font-mono font-bold"
+              style={{ color: '#1D040A', fontSize: '0.5625rem' }}
+            >
               {streak.current} Day Streak
             </span>
-            <span style={{ color: 'rgba(91,101,116,0.4)' }}>·</span>
-            <span className="text-overline font-mono" style={{ color: '#8B95A5', fontSize: '0.5625rem' }}>
+            <span style={{ color: 'rgba(42,6,12,0.5)' }}>·</span>
+            <span className="text-overline font-mono" style={{ color: '#2A060C', fontSize: '0.5625rem' }}>
               {Math.round(momentum.momentum)}%
             </span>
             <div className="flex-1" />
-            <span className="text-overline font-mono hidden md:inline" style={{ color: '#5B6574', fontSize: '0.5625rem' }}>
+            <span className="text-overline font-mono hidden md:inline" style={{ color: '#7A1522', fontSize: '0.5625rem' }}>
               StudyFlow v3
             </span>
           </div>

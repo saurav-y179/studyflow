@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Link2,
-  Keyboard,
 } from 'lucide-react';
 import { ActivePikachu } from './ActivePikachu';
 
@@ -153,14 +152,6 @@ export const Sidebar = ({ activeNav, onNavChange, onPikachuClick, recentActivity
             {!isMinimized && "Ask Pikachu"}
           </motion.button>
         </div>
-
-        {/* Keyboard shortcuts hint */}
-        {!isMinimized && (
-          <div className="flex items-center justify-center gap-1.5 mt-3 opacity-40 hover:opacity-70 transition-opacity cursor-default">
-            <Keyboard className="w-3 h-3 text-white/50" />
-            <span className="text-overline text-white/50" style={{ fontSize: '0.5625rem' }}>Hover for shortcuts</span>
-          </div>
-        )}
       </div>
     </aside>
   );

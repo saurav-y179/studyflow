@@ -182,13 +182,14 @@ function AppV1({ onSwitchVersion }) {
                   ⚙️
                 </button>
                 <button onClick={() => onSwitchVersion('v3')}
-                  className="text-[10px] tracking-[0.15em] px-2.5 py-1.5 border transition-colors"
+                  className="text-[10px] tracking-[0.15em] px-2.5 py-1.5 border transition-colors hover:bg-[rgba(0,51,255,0.06)]"
+                  title="Switch to Pikachu Blue layout"
                   style={{
                     borderColor: electricBlue,
                     color: electricBlue,
                   }}
                 >
-                  T3
+                  PIKACHU BLUE
                 </button>
               </div>
             </div>
