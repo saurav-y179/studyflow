@@ -22,21 +22,37 @@ if (Test-Path -LiteralPath $releaseDir) {
 
 New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
 
+# Copy package files first so we can run npm ci in the staging folder
+Copy-Item -LiteralPath (Join-Path $root "package.json") -Destination (Join-Path $stagingDir "package.json")
+if (Test-Path -LiteralPath (Join-Path $root "package-lock.json")) {
+  Copy-Item -LiteralPath (Join-Path $root "package-lock.json") -Destination (Join-Path $stagingDir "package-lock.json")
+}
+
+# Install production dependencies inside the staging folder (omit dev deps to reduce size)
+Write-Host "Installing production dependencies inside staging folder..."
+Push-Location $stagingDir
+# Use npm ci for reproducible install; --omit=dev keeps devDependencies out
+npm ci --omit=dev
+Pop-Location
+
 $files = @(
-  "package.json",
-  "package-lock.json",
   "server.js",
   "README.md",
   "RELEASE.md",
-  "Start StudyFlow Release.bat"
+  "Start StudyFlow Release.bat",
+  "open-studyflow.vbs"
 )
 
 foreach ($file in $files) {
-  Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $stagingDir $file)
+  if (Test-Path -LiteralPath (Join-Path $root $file)) {
+    Copy-Item -LiteralPath (Join-Path $root $file) -Destination (Join-Path $stagingDir $file)
+  }
 }
 
+# Copy built frontend
 Copy-Item -LiteralPath (Join-Path $root "dist") -Destination (Join-Path $stagingDir "dist") -Recurse
 
+# Create the zip
 Compress-Archive -Path (Join-Path $stagingDir "*") -DestinationPath $zipPath -Force
 
 Write-Host ""
