@@ -20,7 +20,7 @@ The app is designed for students who want one clear place to answer three questi
 - Review recent history.
 - Switch between the available UI versions.
 - Chat with the Pikachu assistant using local, cloud, or basic offline responses.
-- Start the whole app with a Windows `.bat` shortcut.
+- Start the whole app with a Windows launcher shortcut (`open-studyflow.vbs` preferred for release bundles).
 
 ## Quick Start For Normal Users
 
@@ -52,10 +52,20 @@ This builds the app and creates:
 release/studyflow.zip
 ```
 
-Upload that zip file to a GitHub Release. After that, users can download, install, and start StudyFlow from Windows PowerShell with one command:
+Upload that zip file to a GitHub Release. The release bundle now includes production `node_modules`, so users with Node.js installed do not need to run `npm install` after extracting.
+
+After extracting the zip:
+
+1. Double-click `open-studyflow.vbs` (preferred), or double-click `Start StudyFlow Release.bat`.
+2. StudyFlow starts and opens in your browser at `http://localhost:3001`.
+3. Keep the release command window open while using StudyFlow (when using the `.bat` launcher).
+
+Node.js runtime is still required on the user machine (Node 18+ recommended).
+
+Users can also download, extract, and start StudyFlow from Windows PowerShell with one command:
 
 ```powershell
-$url="https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/studyflow.zip"; iwr $url -OutFile studyflow.zip; Expand-Archive .\studyflow.zip -DestinationPath .\studyflow -Force; cd .\studyflow; npm install --omit=dev; npm start
+$url="https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/studyflow.zip"; iwr $url -OutFile studyflow.zip; Expand-Archive .\studyflow.zip -DestinationPath .\studyflow -Force; cd .\studyflow; cscript //nologo .\open-studyflow.vbs
 ```
 
 Replace `YOUR-USER/YOUR-REPO` with the real GitHub repository path.
@@ -63,7 +73,7 @@ Replace `YOUR-USER/YOUR-REPO` with the real GitHub repository path.
 On macOS or Linux, the equivalent terminal command is:
 
 ```bash
-curl -L -o studyflow.zip https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/studyflow.zip && unzip -o studyflow.zip -d studyflow && cd studyflow && npm install --omit=dev && npm start
+curl -L -o studyflow.zip https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/studyflow.zip && unzip -o studyflow.zip -d studyflow && cd studyflow && node server.js
 ```
 
 The release app opens at:
@@ -72,7 +82,21 @@ The release app opens at:
 http://localhost:3001
 ```
 
-People can also unzip the release manually, run `npm install --omit=dev`, and double-click `Start StudyFlow Release.bat`.
+People can also unzip the release manually and double-click `open-studyflow.vbs` (preferred) or `Start StudyFlow Release.bat`.
+
+### Release Quick Test Checklist
+
+- [ ] Extract `studyflow.zip` to a local folder.
+- [ ] Confirm `open-studyflow.vbs`, `Start StudyFlow Release.bat`, and `node_modules/` are present.
+- [ ] Double-click `open-studyflow.vbs` and confirm the browser opens `http://localhost:3001`.
+- [ ] If using `Start StudyFlow Release.bat`, keep the window open while testing.
+- [ ] Confirm the app loads and basic navigation works.
+
+### Release Troubleshooting Tips
+
+- **Port 3001 already in use:** close the process using port `3001`, then relaunch.
+- **Node.js missing:** install Node.js 18+ and relaunch.
+- **VBScript blocked by policy:** use `Start StudyFlow Release.bat` as a fallback launcher.
 
 ## Batch File Shortcut
 
@@ -373,7 +397,7 @@ The zip is written to:
 release/studyflow.zip
 ```
 
-This release bundle is meant for normal users. It includes the built `dist/` frontend, the Express server, package metadata, docs, and a production launcher batch file. It does not include `node_modules` to keep the zip small — users should run `npm install --omit=dev` after extracting on their machine if the release is not fully bundled.
+This release bundle is meant for normal users. It includes the built `dist/` frontend, the Express server, production `node_modules`, package metadata, docs, `open-studyflow.vbs` (preferred one-click launcher), and `Start StudyFlow Release.bat`.
 
 ## Available Scripts
 
@@ -397,6 +421,7 @@ This release bundle is meant for normal users. It includes the built `dist/` fro
 .
 +-- Start StudyFlow.bat       Windows launcher shortcut
 +-- Start StudyFlow Release.bat
++-- open-studyflow.vbs        Preferred one-click release launcher
 +-- RELEASE.md                Release zip install instructions
 +-- scripts/
 |   +-- create-release.ps1    Builds the single release zip
