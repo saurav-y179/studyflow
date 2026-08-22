@@ -1,10 +1,5 @@
-' StudyFlow instant launcher.
-' Pure VBScript (no PowerShell) so double-click reaches a running app
-' as fast as possible:
-'   1. If the app is already running  -> open browser immediately.
-'   2. Otherwise start servers hidden -> poll until frontend responds
-'      -> open browser. No console flash, no progress window.
-
+' StudyFlow instant launcher (release)
+' Starts the release server (node server.js) hidden, waits for it to respond, then opens the browser.
 Option Explicit
 
 Dim shell, fso, appDir, lockDir, appUrl
@@ -12,10 +7,9 @@ Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 appDir = fso.GetParentFolderName(WScript.ScriptFullName)
-lockDir = appDir & "\.studyflow-lock"
-appUrl = "http://localhost:5173"
+lockDir = appDir & "\\.studyflow-lock"
+appUrl = "http://localhost:3001"
 
-' ── Probe helper: true if URL answers (any non-server-error status) ──
 Function HttpOk(urlToCheck)
     On Error Resume Next
     Dim req
@@ -30,23 +24,23 @@ Sub OpenBrowser()
     shell.Run Chr(34) & appUrl & Chr(34), 1, False
 End Sub
 
-' ── Fast path: already running? Open instantly and exit ────────────
+' Fast path: already running? Open and exit
 If HttpOk(appUrl & "/") Then
     OpenBrowser
     WScript.Quit 0
 End If
 
-' ── Single-instance lock (another launch may be mid-startup) ───────
+' Single-instance lock (another launch may be mid-startup)
 On Error Resume Next
 fso.CreateFolder(lockDir)
 If Err.Number <> 0 Then WScript.Quit 0
 On Error GoTo 0
 
-' ── Start both servers hidden via dev.js ───────────────────────────
+' Start the release server hidden (minimized)
 shell.CurrentDirectory = appDir
-shell.Run "cmd /c node dev.js", 0, False
+' Use a minimized CMD window to run node server.js and silence output
+shell.Run "cmd /c start ""StudyFlow Server"" /min cmd /c node server.js > nul 2>&1", 0, False
 
-' ── Poll until the frontend answers (~120ms granularity) ───────────
 Dim i, ready
 ready = False
 For i = 1 To 375   ' ~45s cap
@@ -60,13 +54,12 @@ Next
 If ready Then
     OpenBrowser
 Else
-    ' Rare failure path: give feedback instead of silence
     MsgBox "StudyFlow did not start within 45 seconds." & vbCrLf & _
            "Make sure Node.js is installed and no other program" & vbCrLf & _
-           "is using port 5173.", vbExclamation, "StudyFlow"
+           "is using port 3001.", vbExclamation, "StudyFlow"
 End If
 
-' ── Release lock ───────────────────────────────────────────────────
+' Release lock
 On Error Resume Next
 If fso.FolderExists(lockDir) Then fso.DeleteFolder lockDir, True
 On Error GoTo 0
