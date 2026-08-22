@@ -1,6 +1,6 @@
 # StudyFlow
 
-StudyFlow is a local student productivity dashboard for planning study tasks, tracking daily completion, building streaks, and reviewing study momentum over time. It runs in your browser, saves your data locally, and can also sync that data into simple JSON files through the included local Express server.
+StudyFlow is a local student productivity dashboard for planning study tasks, tracking daily completion, building streaks, and reviewing study momentum over time. It runs in your browser, saves your data locally, and is designed to be run from a cloned repository or a release bundle.
 
 The app is designed for students who want one clear place to answer three questions every day:
 
@@ -124,6 +124,37 @@ Start StudyFlow.bat
 
 For the batch file shortcut, Windows is required because `.bat` files are Windows scripts.
 
+### Node.js / npm (recommended)
+
+StudyFlow uses modern ESM and recent dependencies. To avoid runtime issues, use a recent Node.js LTS release. Recommended:
+
+- Node.js 18.x or later (LTS). Node 20+ is also supported.
+- npm 9.x or later.
+
+Check your versions:
+
+```bash
+node -v
+npm -v
+```
+
+If you see syntax or module errors when running `npm run dev`, upgrade Node.js to an LTS version.
+
+### Environment variables
+
+StudyFlow supports a few optional environment variables you can set when running the server or the combined dev script.
+
+- STUDYFLOW_API_KEY (optional): when set, the Express API will require this API key for requests. If unset, the API is open (development mode).
+  - Linux / macOS (temporary in shell): `export STUDYFLOW_API_KEY=your-secret-key`
+  - Windows PowerShell (temporary for session): `$env:STUDYFLOW_API_KEY = "your-secret-key"`
+  - Windows (persistent): `setx STUDYFLOW_API_KEY "your-secret-key"`
+  - When using an API key, provide it in requests via the `x-api-key` header or `?apiKey=` query parameter.
+
+- CORS_ORIGIN (optional): overrides the default CORS origin. Default is `http://localhost:5173`.
+  - Example: `export CORS_ORIGIN=https://example.local`
+
+- PORT (optional): overrides the API server port (default 3001). Example: `PORT=4000 npm run dev:server`.
+
 ## Running The App
 
 ### Option 1: Use The Windows Batch File
@@ -169,7 +200,7 @@ This starts only Vite. The app can still fall back to browser storage, but file-
 npm run dev:server
 ```
 
-This starts only the Express server on `http://localhost:3001`.
+This starts only the Express server on `http://localhost:3001` (or the port set in PORT).
 
 ## How To Use StudyFlow
 
@@ -209,7 +240,7 @@ A day counts toward streak progress when at least 80% of that day's tasks are co
 
 ### 5. Understand Planned And Locked Tasks
 
-Tasks planned for tomorrow become part of the next day's task list. When a planned task rolls into today, it can be completed, but it may be locked from editing or deleting. This helps preserve the plan you made yesterday while still letting you mark real progress.
+Tasks planned for tomorrow become part of the next day's task list. When a planned task rolls into today, it can be completed, but it may be locked from editing or deleting. This helps preserve the plan.
 
 Tasks added directly today can usually be deleted on the same day.
 
@@ -298,7 +329,7 @@ If the API server is unavailable, the app can still work from browser storage. F
 
 ## Logout And Profiles
 
-Logout clears the active session marker, but it does not intentionally delete all saved study data. The saved profiles and task entries remain available in local storage or the `data/` folder depending on how the app was running.
+Logout clears the active session marker, but it does not intentionally delete all saved study data. The saved profiles and task entries remain available in local storage or the `data/` folder depending on how you started the app.
 
 Use settings to update the current profile.
 
@@ -342,7 +373,7 @@ The zip is written to:
 release/studyflow.zip
 ```
 
-This release bundle is meant for normal users. It includes the built `dist/` frontend, the Express server, package metadata, docs, and a production launcher batch file. It does not include `node_modules/` or saved personal data from `data/`.
+This release bundle is meant for normal users. It includes the built `dist/` frontend, the Express server, package metadata, docs, and a production launcher batch file. It does not include `node_modules` to keep the zip small — users should run `npm install --omit=dev` after extracting on their machine if the release is not fully bundled.
 
 ## Available Scripts
 
@@ -384,6 +415,8 @@ This release bundle is meant for normal users. It includes the built `dist/` fro
 +-- vite.config.js            Vite configuration
 ```
 
+**How it fits together:** The dev script (`npm run dev`) runs `dev.js` which starts the Express API server (`server.js`) and a local Vite dev server concurrently. The frontend (Vite) communicates with the local API (default port 3001) for file-backed persistence when available; otherwise it falls back to browser localStorage.
+
 ## Troubleshooting
 
 ### The Batch File Opens And Immediately Closes
@@ -408,11 +441,19 @@ Make sure the terminal running StudyFlow is still open. The app only works while
 
 ### Port `5173` Or `3001` Is Already In Use
 
-Another app may already be using the same port. Close the other app or stop the old StudyFlow terminal window.
+Another app may already be using the same port. Close the other app or stop the old StudyFlow terminal window. You can also override the API port by setting the `PORT` environment variable before starting the server.
 
 ### Data Does Not Appear After Restarting
 
-Start StudyFlow with `npm run dev` or `Start StudyFlow.bat` so the API server can sync data with the `data/` folder. Also avoid clearing browser site data unless you intentionally want to remove local browser storage.
+Start StudyFlow with `npm run dev` or `Start StudyFlow.bat` so the API server can sync data with the `data/` folder. Also avoid clearing browser site data unless you intentionally want to remove saved profiles.
+
+### API Returns `401 Unauthorized` After Enabling API Key
+
+If you set `STUDYFLOW_API_KEY` the server will require the same key for API requests. Provide the key in the `x-api-key` header or `?apiKey=` query parameter. To test in a browser, you can append `?apiKey=your-key` to the `/api/sync/<profileId>` call or use a REST client and set the `x-api-key` header.
+
+### CORS Issues
+
+If you run the frontend from a different origin than `http://localhost:5173`, set `CORS_ORIGIN` to allow that origin before starting the server.
 
 ### The AI Assistant Does Not Answer From A Real Model
 
@@ -435,6 +476,6 @@ Check the assistant settings:
 
 ## Notes For Deployment
 
-StudyFlow is primarily designed as a local personal productivity app. You can deploy the static `dist/` frontend to a static hosting provider, but the included Express API writes to local JSON files and is best suited for local or trusted personal use.
+StudyFlow is primarily designed as a local personal productivity app. You can deploy the static `dist/` frontend to a static hosting provider, but the included Express API writes to local JSON files and is not intended for multi-user production without replacing file storage with a proper database and adding authentication.
 
 For public deployment, replace the local file-based storage with a proper database and authentication layer.
